@@ -1,0 +1,45 @@
+# Build artifacts
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Test results and coverage
+TestResults/
+*.coverage
+coverage*.xml
+
+# NuGet
+*.nupkg
+packages/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# dotnet watch
+.dotnetwatch
+
+# Rider caches
+.idea/
+
+# Misc
+*.db
+
+# Ignore build outputs created by tests or tools
+**/bin/**
+**/obj/**
