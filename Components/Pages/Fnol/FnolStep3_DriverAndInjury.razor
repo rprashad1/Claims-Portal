@@ -18,6 +18,7 @@
             <h6 class="mb-0">Driver Information</h6>
         </div>
         <div class="card-body">
+            @{ Driver ??= new(); Driver.Address ??= new Address(); }
             <div class="mb-3">
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="driverType" id="driverInsured" value="insured"
@@ -333,11 +334,12 @@
 
                         @if (SelectedDriverAttorneyVendor != null)
                         {
+                            var sv = SelectedDriverAttorneyVendor;
                             <div class="alert alert-success mb-3">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
                                         <i class="bi bi-check-circle me-2"></i>
-                                        <strong>Attorney loaded from Vendor Master:</strong> @SelectedDriverAttorneyVendor.Name
+                                        <strong>Attorney loaded from Vendor Master:</strong> @(sv?.Name ?? "")
                                     </div>
                                     <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSelectedDriverAttorney">
                                         <i class="bi bi-x-lg"></i>
@@ -346,16 +348,17 @@
                             </div>
                         }
 
+                        var hasSel = SelectedDriverAttorneyVendor != null;
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label">Attorney Name</label>
-                                <input type="text" class="form-control" @bind="DriverAttorney.Name" 
-                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                                    <label class="form-label">Attorney Name</label>
+                                    <input type="text" class="form-control" @bind="DriverAttorney!.Name" 
+                                       disabled="@hasSel" />
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Firm Name</label>
-                                <input type="text" class="form-control" @bind="DriverAttorney.FirmName" 
-                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                                 <label class="form-label">Firm Name</label>
+                                 <input type="text" class="form-control" @bind="DriverAttorney!.FirmName" 
+                                       disabled="@hasSel" />
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
@@ -363,17 +366,18 @@
                                 <label class="form-label">Phone Number</label>
                                 <input type="tel" class="form-control" value="@AttorneyPhoneDisplay" 
                                        @onchange="OnAttorneyPhoneChanged" placeholder="(555) 000-0000"
-                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                                               disabled="@hasSel" />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Email</label>
                                 <input type="email" class="form-control" @bind="DriverAttorney.Email" 
-                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                                               disabled="@hasSel" />
                             </div>
                         </div>
                         
                         <!-- Attorney Address -->
                         <div class="border-top pt-3 mt-3">
+                            @{ DriverAttorney ??= new(); DriverAttorney.Address ??= new Address(); }
                             <h6 class="mb-3">Attorney Address</h6>
                             @if (SelectedDriverAttorneyVendor != null)
                             {
@@ -389,8 +393,8 @@
                                         <input type="text" class="form-control" value="@DriverAttorney.Address.AddressLine2" disabled />
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">City</label>
-                                        <input type="text" class="form-control" value="@DriverAttorney.Address.City" disabled />
+                                         <label class="form-label">Email</label>
+                                         <input type="email" class="form-control" @bind="DriverAttorney!.Email" disabled="@hasSel" />
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">State</label>
@@ -590,6 +594,7 @@
                      OnCancelled="@(() => {})" />
 
 @code {
+    #pragma warning disable CS8602
     [Inject]
     private ILookupService LookupService { get; set; } = null!;
 

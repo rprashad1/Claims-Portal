@@ -44,6 +44,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
+                                    @{ var drv = ThirdPartyData?.Driver; }
                                     <div class="row g-3">
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">Name</small>
@@ -52,10 +53,10 @@
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">License Number</small>
                                             <strong>
-                                                @(string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseNumber) ? "-" : ThirdPartyData.Driver.LicenseNumber)
-                                                @if (!string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseState))
+                                                @(string.IsNullOrEmpty(drv?.LicenseNumber) ? "-" : drv.LicenseNumber)
+                                                @if (!string.IsNullOrEmpty(drv?.LicenseState))
                                                 {
-                                                    <span class="badge bg-secondary ms-1">@ThirdPartyData.Driver.LicenseState</span>
+                                                    <span class="badge bg-secondary ms-1">@(drv.LicenseState ?? "")</span>
                                                 }
                                             </strong>
                                         </div>
@@ -65,7 +66,7 @@
                                         </div>
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">Date of Birth</small>
-                                            <strong>@(ThirdPartyData.Driver?.DateOfBirth != default ? ThirdPartyData.Driver!.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                                            <strong>@(drv != null && drv.DateOfBirth != default ? drv.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
                                         </div>
                                     </div>
                                     <div class="row g-3 mt-2">
@@ -250,10 +251,11 @@
 
                             @* Driver Section (with inline injury if driver is claimant) *@
                             <div class="card mb-3 @(claimantIsDriver && HasInjury ? "border-primary" : "")">
+                                @{ var drv = ThirdPartyData?.Driver; }
                                 <div class="card-header @(claimantIsDriver && HasInjury ? "bg-primary text-white" : "bg-light")">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0">
-                                            <i class="bi bi-person-badge me-2"></i>@(ThirdPartyData.Driver?.Name ?? "-")
+                                            <i class="bi bi-person-badge me-2"></i>@(drv?.Name ?? "-")
                                         </h6>
                                         <div>
                                             <span class="badge @(claimantIsDriver && HasInjury ? "bg-light text-info" : "bg-info")">Driver</span>
@@ -268,37 +270,37 @@
                                     <div class="row g-3">
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">Name</small>
-                                            <strong>@(ThirdPartyData.Driver?.Name ?? "-")</strong>
+                                            <strong>@(drv?.Name ?? "-")</strong>
                                         </div>
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">License Number</small>
                                             <strong>
-                                                @(string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseNumber) ? "-" : ThirdPartyData.Driver.LicenseNumber)
-                                                @if (!string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseState))
+                                                @(string.IsNullOrEmpty(drv?.LicenseNumber) ? "-" : drv.LicenseNumber)
+                                                @if (!string.IsNullOrEmpty(drv?.LicenseState))
                                                 {
-                                                    <span class="badge bg-secondary ms-1">@ThirdPartyData.Driver.LicenseState</span>
+                                                    <span class="badge bg-secondary ms-1">@(drv.LicenseState ?? "")</span>
                                                 }
                                             </strong>
                                         </div>
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">Phone</small>
-                                            <strong>@(string.IsNullOrEmpty(ThirdPartyData.Driver?.PhoneNumber) ? "-" : ThirdPartyData.Driver.PhoneNumber)</strong>
+                                            <strong>@(string.IsNullOrEmpty(drv?.PhoneNumber) ? "-" : drv.PhoneNumber)</strong>
                                         </div>
                                         <div class="col-md-3">
                                             <small class="text-muted d-block">Date of Birth</small>
-                                            <strong>@(ThirdPartyData.Driver?.DateOfBirth != default ? ThirdPartyData.Driver.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                                            <strong>@(drv != null && drv.DateOfBirth != default ? drv.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
                                         </div>
                                     </div>
                                     <div class="row g-3 mt-2">
                                         <div class="col-md-4">
                                             <small class="text-muted d-block">Email</small>
-                                            <strong>@(string.IsNullOrEmpty(ThirdPartyData.Driver?.Email) ? "-" : ThirdPartyData.Driver.Email)</strong>
+                                            <strong>@(string.IsNullOrEmpty(drv?.Email) ? "-" : drv.Email)</strong>
                                         </div>
                                         <div class="col-md-8">
                                             <small class="text-muted d-block">Address</small>
-                                            @if (ThirdPartyData.Driver?.Address != null && ThirdPartyData.Driver.Address.HasAnyAddress)
+                                            @if (drv?.Address != null && drv.Address.HasAnyAddress)
                                             {
-                                                <strong>@ThirdPartyData.Driver.Address.GetFormattedAddress()</strong>
+                                                <strong>@(drv.Address.GetFormattedAddress() ?? "-")</strong>
                                             }
                                             else
                                             {

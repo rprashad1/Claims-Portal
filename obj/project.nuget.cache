@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "T7J2u2kh1/M=",
+  "dgSpecHash": "r/QPmK78a6E=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
+  "projectFilePath": "c:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\rprashad\\.nuget\\packages\\azure.core\\1.47.1\\azure.core.1.47.1.nupkg.sha512",
     "C:\\Users\\rprashad\\.nuget\\packages\\azure.identity\\1.14.2\\azure.identity.1.14.2.nupkg.sha512",

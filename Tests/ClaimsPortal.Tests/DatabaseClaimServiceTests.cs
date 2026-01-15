@@ -5,11 +5,10 @@ using ClaimsPortal.Data;
 using ClaimsPortal.Models;
 using ClaimsPortal.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Xunit;
 
 namespace ClaimsPortal.Tests
 {
-    [TestClass]
     public class DatabaseClaimServiceTests
     {
         private ClaimsPortalDbContext CreateInMemoryContext(string dbName)
@@ -20,7 +19,7 @@ namespace ClaimsPortal.Tests
             return new ClaimsPortalDbContext(options);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SaveDraft_PolicyExpiry_IsPersisted()
         {
             var dbName = Guid.NewGuid().ToString();
@@ -31,7 +30,7 @@ namespace ClaimsPortal.Tests
 
             var claim = new Claim
             {
-                PolicyInfo = new Policy { PolicyNumber = "P123", ExpiryDate = expiry }
+                PolicyInfo = new ClaimsPortal.Models.Policy { PolicyNumber = "P123", ExpiryDate = expiry }
             };
 
             var request = new FnolSaveRequest { ClaimData = claim, CreatedBy = "test" };
@@ -39,11 +38,11 @@ namespace ClaimsPortal.Tests
             var saved = await svc.SaveFnolDraftWithDetailsAsync(request);
 
             var fnol = ctx.FNOLs.FirstOrDefault(f => f.FnolId == saved.FnolId);
-            Assert.IsNotNull(fnol);
-            Assert.AreEqual(expiry.Date, fnol.PolicyExpirationDate?.Date);
+            Assert.NotNull(fnol);
+            Assert.Equal(expiry.Date, fnol.PolicyExpirationDate?.Date);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SaveDraft_ReportedByOther_CreatesEntityAndAddress()
         {
             var dbName = Guid.NewGuid().ToString();
@@ -73,17 +72,17 @@ namespace ClaimsPortal.Tests
             var saved = await svc.SaveFnolDraftWithDetailsAsync(request);
 
             var fnol = await ctx.FNOLs.FirstOrDefaultAsync(f => f.FnolId == saved.FnolId);
-            Assert.IsNotNull(fnol);
-            Assert.IsTrue(fnol.ReportedByEntityId.HasValue);
+            Assert.NotNull(fnol);
+            Assert.True(fnol.ReportedByEntityId.HasValue);
 
             var entity = await ctx.EntityMasters.FindAsync(fnol.ReportedByEntityId.Value);
-            Assert.IsNotNull(entity);
-            Assert.AreEqual("Jane Reporter", entity.EntityName);
+            Assert.NotNull(entity);
+            Assert.Equal("Jane Reporter", entity.EntityName);
 
             var addr = ctx.Addresses.FirstOrDefault(a => a.EntityId == entity.EntityId);
-            Assert.IsNotNull(addr);
-            Assert.AreEqual("123 Main St", addr.StreetAddress);
-            Assert.AreEqual("Townsville", addr.City);
+            Assert.NotNull(addr);
+            Assert.Equal("123 Main St", addr.StreetAddress);
+            Assert.Equal("Townsville", addr.City);
         }
     }
 }

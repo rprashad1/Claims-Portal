@@ -17,6 +17,11 @@
     <Folder Include="Tests\ClaimsPortal.Tests\Helpers\" />
   </ItemGroup>
 
+  <!-- Exclude test files from the web project compile items so test projects can build them separately -->
+  <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
   </ItemGroup>

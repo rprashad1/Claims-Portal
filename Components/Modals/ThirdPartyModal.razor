@@ -157,36 +157,33 @@
                                 <h6 class="mb-0">Vehicle Details</h6>
                             </div>
                             <div class="card-body">
-                                @if (ThirdParty.Vehicle == null)
-                                {
-                                    ThirdParty.Vehicle = new();
-                                }
+                                @{ var _tpVehicle = ThirdParty ??= new(); _tpVehicle.Vehicle ??= new VehicleInfo(); }
                                 <div class="row g-3 mb-3">
                                     <div class="col-md-4">
                                         <label class="form-label">VIN</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Vin" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle!.Vin" />
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">Year</label>
-                                        <input type="number" class="form-control" @bind="ThirdParty.Vehicle.Year" />
+                                        <input type="number" class="form-control" @bind="ThirdParty.Vehicle!.Year" />
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Make</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Make" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle!.Make" />
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Model</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Model" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle!.Model" />
                                     </div>
                                 </div>
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Plate #</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.PlateNumber" placeholder="License Plate Number" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle!.PlateNumber" placeholder="License Plate Number" />
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Plate State</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.PlateState" maxlength="2" placeholder="State (e.g., CA)" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle!.PlateState" maxlength="2" placeholder="State (e.g., CA)" />
                                     </div>
                                 </div>
                             </div>
@@ -204,10 +201,7 @@
                                 </div>
                             </div>
                             <div class="card-body">
-                                @if (ThirdParty.Driver == null)
-                                {
-                                    ThirdParty.Driver = new();
-                                }
+                                @{ var _tpDriver = ThirdParty ??= new(); _tpDriver.Driver ??= new DriverInfo(); }
                                 
                                 @if (DriverSameAsOwner)
                                 {
@@ -219,22 +213,22 @@
                                 <div class="row g-3 mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Driver Name</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.Name" 
-                                               disabled="@DriverSameAsOwner" />
+                                             <input type="text" class="form-control" @bind="ThirdParty.Driver!.Name" 
+                                                 disabled="@DriverSameAsOwner" />
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Date of Birth</label>
-                                        <input type="date" class="form-control" @bind="ThirdParty.Driver.DateOfBirth" />
+                                        <input type="date" class="form-control" @bind="ThirdParty.Driver!.DateOfBirth" />
                                     </div>
                                 </div>
                                 <div class="row g-3 mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label">License Number</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.LicenseNumber" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver!.LicenseNumber" />
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">License State</label>
-                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.LicenseState" maxlength="2" />
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver!.LicenseState" maxlength="2" />
                                     </div>
                                 </div>
 
@@ -546,6 +540,7 @@
                      OnCancelled="@(() => {})" />
 
 @code {
+    #pragma warning disable CS8601, CS8602
     [Parameter]
     public EventCallback<ThirdParty> OnThirdPartyAdded { get; set; }
 
@@ -560,7 +555,14 @@
     [Inject]
     private IJSRuntime JS { get; set; } = null!;
 
-    private ThirdParty ThirdParty = new();
+    private ThirdParty ThirdParty = new()
+    {
+        Address = new Address(),
+        Vehicle = new VehicleInfo(),
+        Driver = new DriverInfo { Address = new Address() },
+        AttorneyInfo = new AttorneyInfo { Address = new Address() },
+        InjuryInfo = new Injury()
+    };
     private bool DriverSameAsOwner = false;
     private bool IsEditMode = false;
     private AttorneySearchModal? attorneySearchModal;
@@ -582,13 +584,13 @@
         IsEditMode = false;
         
         // Ensure all nested objects are initialized
-        ThirdParty.Address = new();
-        ThirdParty.Vehicle = new();
-        ThirdParty.Driver = new();
-        ThirdParty.Driver.Address = new();
-        ThirdParty.AttorneyInfo = new AttorneyInfo { Address = new Address() };
-        ThirdParty.InjuryInfo = new();
-        ThirdParty.InjuredParty = "Owner"; // Default to Owner as injured party
+        ThirdParty.Address ??= new Address();
+        ThirdParty.Vehicle ??= new VehicleInfo();
+        ThirdParty.Driver ??= new DriverInfo();
+        ThirdParty.Driver.Address ??= new Address();
+        ThirdParty.AttorneyInfo ??= new AttorneyInfo { Address = new Address() };
+        ThirdParty.InjuryInfo ??= new Injury();
+        ThirdParty.InjuredParty ??= "Owner"; // Default to Owner as injured party
         // If there is exactly one third-party vehicle VIN available, preselect it for passenger entries
         if (ThirdPartyVehicleVins != null && ThirdPartyVehicleVins.Count == 1)
         {
@@ -705,8 +707,9 @@
 
     private void OnAttorneySelected(AttorneyInfo attorneyInfo)
     {
-        ThirdParty.AttorneyInfo = attorneyInfo;
-        SelectedAttorneyVendor = new Vendor { Name = attorneyInfo.FirmName };
+        ThirdParty ??= new();
+        ThirdParty.AttorneyInfo = attorneyInfo ?? new AttorneyInfo { Address = new Address() };
+        SelectedAttorneyVendor = new Vendor { Name = attorneyInfo.FirmName ?? attorneyInfo.Name ?? "" };
         AttorneyPhoneDisplay = FormatPhoneNumber(attorneyInfo.PhoneNumber);
         StateHasChanged();
     }
@@ -720,39 +723,41 @@
     private void ClearSelectedAttorney()
     {
         SelectedAttorneyVendor = null;
+        ThirdParty ??= new();
         ThirdParty.AttorneyInfo = new AttorneyInfo { Address = new Address() };
         AttorneyPhoneDisplay = "";
     }
 
     private void OnDriverSameAsOwnerChanged()
     {
-        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        ThirdParty ??= new();
+        if (DriverSameAsOwner)
         {
-            // Ensure Driver Address is initialized
-            if (ThirdParty.Driver.Address == null)
-                ThirdParty.Driver.Address = new();
-            
+            ThirdParty.Driver ??= new();
+            ThirdParty.Driver!.Address ??= new();
+
             // Copy owner info to driver
-            ThirdParty.Driver.Name = ThirdParty.Name;
-            ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
-            ThirdParty.Driver.Email = ThirdParty.Email;
-            ThirdParty.Driver.FeinSsNumber = ThirdParty.FeinSsNumber;
-            
+            ThirdParty.Driver!.Name = ThirdParty.Name;
+            ThirdParty.Driver!.PhoneNumber = ThirdParty.PhoneNumber;
+            ThirdParty.Driver!.Email = ThirdParty.Email;
+            ThirdParty.Driver!.FeinSsNumber = ThirdParty.FeinSsNumber;
+
             // Copy full address including City, State, and ZipCode
-            ThirdParty.Driver.Address.StreetAddress = ThirdParty.Address.StreetAddress;
-            ThirdParty.Driver.Address.AddressLine2 = ThirdParty.Address.AddressLine2;
-            ThirdParty.Driver.Address.City = ThirdParty.Address.City;
-            ThirdParty.Driver.Address.State = ThirdParty.Address.State;
-            ThirdParty.Driver.Address.ZipCode = ThirdParty.Address.ZipCode;
-            
+            var ownerAddr = ThirdParty.Address ?? new Address();
+            ThirdParty.Driver.Address.StreetAddress = ownerAddr.StreetAddress;
+            ThirdParty.Driver.Address.AddressLine2 = ownerAddr.AddressLine2;
+            ThirdParty.Driver.Address.City = ownerAddr.City;
+            ThirdParty.Driver.Address.State = ownerAddr.State;
+            ThirdParty.Driver.Address.ZipCode = ownerAddr.ZipCode;
+
             DriverPhoneDisplay = OwnerPhoneDisplay;
-            
+
             // When driver is same as owner, injured party must be "Owner"
             if (ThirdParty.WasInjured)
             {
                 ThirdParty.InjuredParty = "Owner";
             }
-            
+
             // Force UI refresh
             StateHasChanged();
         }
@@ -761,12 +766,14 @@
     private void OnOwnerPhoneChanged(ChangeEventArgs e)
     {
         var rawValue = e.Value?.ToString() ?? "";
+        ThirdParty ??= new();
         ThirdParty.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
         OwnerPhoneDisplay = FormatPhoneNumber(ThirdParty.PhoneNumber);
         
         // Update driver phone if same as owner
-        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        if (DriverSameAsOwner)
         {
+            ThirdParty.Driver ??= new();
             ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
             DriverPhoneDisplay = OwnerPhoneDisplay;
         }
@@ -775,21 +782,22 @@
     // Method to sync owner changes to driver when "Driver Same as Owner" is checked
     private void SyncOwnerToDriverIfSame()
     {
-        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        ThirdParty ??= new();
+            if (DriverSameAsOwner)
         {
-            ThirdParty.Driver.Name = ThirdParty.Name;
-            ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
-            ThirdParty.Driver.Email = ThirdParty.Email;
-            ThirdParty.Driver.FeinSsNumber = ThirdParty.FeinSsNumber;
+            ThirdParty.Driver ??= new();
+            ThirdParty.Driver!.Name = ThirdParty.Name;
+            ThirdParty.Driver!.PhoneNumber = ThirdParty.PhoneNumber;
+            ThirdParty.Driver!.Email = ThirdParty.Email;
+            ThirdParty.Driver!.FeinSsNumber = ThirdParty.FeinSsNumber;
             
-            if (ThirdParty.Driver.Address == null)
-                ThirdParty.Driver.Address = new();
-                
-            ThirdParty.Driver.Address.StreetAddress = ThirdParty.Address.StreetAddress;
-            ThirdParty.Driver.Address.AddressLine2 = ThirdParty.Address.AddressLine2;
-            ThirdParty.Driver.Address.City = ThirdParty.Address.City;
-            ThirdParty.Driver.Address.State = ThirdParty.Address.State;
-            ThirdParty.Driver.Address.ZipCode = ThirdParty.Address.ZipCode;
+            ThirdParty.Driver!.Address ??= new();
+            var ownerAddr = ThirdParty.Address ?? new Address();
+            ThirdParty.Driver!.Address.StreetAddress = ownerAddr.StreetAddress;
+            ThirdParty.Driver!.Address.AddressLine2 = ownerAddr.AddressLine2;
+            ThirdParty.Driver!.Address.City = ownerAddr.City;
+            ThirdParty.Driver!.Address.State = ownerAddr.State;
+            ThirdParty.Driver!.Address.ZipCode = ownerAddr.ZipCode;
             
             DriverPhoneDisplay = OwnerPhoneDisplay;
         }
@@ -797,7 +805,8 @@
 
     private void OnDriverPhoneChanged(ChangeEventArgs e)
     {
-        if (ThirdParty.Driver == null) return;
+        ThirdParty ??= new();
+        ThirdParty.Driver ??= new();
         var rawValue = e.Value?.ToString() ?? "";
         ThirdParty.Driver.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
         DriverPhoneDisplay = FormatPhoneNumber(ThirdParty.Driver.PhoneNumber);
@@ -805,7 +814,8 @@
 
     private void OnAttorneyPhoneChanged(ChangeEventArgs e)
     {
-        if (ThirdParty.AttorneyInfo == null) return;
+        ThirdParty ??= new();
+        ThirdParty.AttorneyInfo ??= new AttorneyInfo { Address = new Address() };
         var rawValue = e.Value?.ToString() ?? "";
         ThirdParty.AttorneyInfo.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
         AttorneyPhoneDisplay = FormatPhoneNumber(ThirdParty.AttorneyInfo.PhoneNumber);

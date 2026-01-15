@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj": {}
+    "c:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj": {}
   },
   "projects": {
-    "C:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj": {
+    "c:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
+        "projectUniqueName": "c:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
         "projectName": "ClaimsPortal",
-        "projectPath": "C:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
+        "projectPath": "c:\\Projects\\ClaimsPortal\\ClaimsPortal.csproj",
         "packagesPath": "C:\\Users\\rprashad\\.nuget\\packages\\",
-        "outputPath": "C:\\Projects\\ClaimsPortal\\obj\\",
+        "outputPath": "c:\\Projects\\ClaimsPortal\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

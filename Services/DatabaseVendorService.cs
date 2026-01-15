@@ -398,8 +398,8 @@ public class DatabaseVendorService : IVendorService
         // Parse payment dates/days from PaymentDays field
         if (!string.IsNullOrEmpty(entity.PaymentDays))
         {
-            vendor.Payment.SelectedDates = ParsePaymentDates(entity.PaymentDays);
-            vendor.Payment.SelectedDays = ParsePaymentDays(entity.PaymentDays);
+            vendor.Payment!.SelectedDates = ParsePaymentDates(entity.PaymentDays) ?? new List<int>();
+            vendor.Payment!.SelectedDays = ParsePaymentDays(entity.PaymentDays) ?? new List<DayOfWeek>();
         }
 
         // Map addresses
@@ -423,9 +423,9 @@ public class DatabaseVendorService : IVendorService
             VendorId = vendor.Id,
             EntityType = vendor.EntityType == EntityType.Business ? 'B' : 'I',
             VendorType = GetVendorTypeString(vendor.VendorType),
-            VendorName = vendor.Name,
-            DoingBusinessAs = vendor.DoingBusinessAs,
-            FEINNumber = vendor.FeinNumber,
+            VendorName = vendor.Name ?? string.Empty,
+            DoingBusinessAs = vendor.DoingBusinessAs ?? string.Empty,
+            FEINNumber = vendor.FeinNumber ?? string.Empty,
             EffectiveDate = vendor.EffectiveDate,
             TerminationDate = vendor.TerminationDate,
             ContactName = vendor.Contact?.Name ?? string.Empty,
@@ -438,7 +438,7 @@ public class DatabaseVendorService : IVendorService
             BackupWithholding = vendor.TaxInfo?.BackupWithholding ?? false,
             ReceivesBulkPayment = vendor.Payment?.ReceivesBulkPayments ?? false,
             PaymentFrequency = GetPaymentFrequencyString(vendor.Payment?.Frequency),
-            PaymentDays = paymentDays,
+            PaymentDays = paymentDays ?? string.Empty,
             VendorStatus = vendor.Status == VendorStatus.Active ? 'Y' : 'D'
         };
     }
@@ -449,9 +449,9 @@ public class DatabaseVendorService : IVendorService
         
         entity.EntityType = vendor.EntityType == EntityType.Business ? 'B' : 'I';
         entity.VendorType = GetVendorTypeString(vendor.VendorType);
-        entity.VendorName = vendor.Name;
-        entity.DoingBusinessAs = vendor.DoingBusinessAs;
-        entity.FEINNumber = vendor.FeinNumber;
+        entity.VendorName = vendor.Name ?? string.Empty;
+        entity.DoingBusinessAs = vendor.DoingBusinessAs ?? string.Empty;
+        entity.FEINNumber = vendor.FeinNumber ?? string.Empty;
         entity.EffectiveDate = vendor.EffectiveDate;
         entity.TerminationDate = vendor.TerminationDate;
         entity.ContactName = vendor.Contact?.Name ?? string.Empty;
@@ -464,7 +464,7 @@ public class DatabaseVendorService : IVendorService
         entity.BackupWithholding = vendor.TaxInfo?.BackupWithholding ?? false;
         entity.ReceivesBulkPayment = vendor.Payment?.ReceivesBulkPayments ?? false;
         entity.PaymentFrequency = GetPaymentFrequencyString(vendor.Payment?.Frequency);
-        entity.PaymentDays = paymentDays;
+        entity.PaymentDays = paymentDays ?? string.Empty;
         entity.VendorStatus = vendor.Status == VendorStatus.Active ? 'Y' : 'D';
     }
 

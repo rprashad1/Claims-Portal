@@ -11,217 +11,217 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = ClaimsPortal
 build_property.RootNamespace = ClaimsPortal
-build_property.ProjectDir = C:\Projects\ClaimsPortal\
+build_property.ProjectDir = c:\Projects\ClaimsPortal\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 9.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = C:\Projects\ClaimsPortal
+build_property.MSBuildProjectDirectory = c:\Projects\ClaimsPortal
 build_property._RazorSourceGeneratorDebug = 
 build_property.EffectiveAnalysisLevelStyle = 10.0
 build_property.EnableCodeStyleSeverity = 
 
-[C:/Projects/ClaimsPortal/Components/App.razor]
+[c:/Projects/ClaimsPortal/Components/App.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/AttorneySearchModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/AttorneySearchModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcQXR0b3JuZXlTZWFyY2hNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/AuthorityModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/AuthorityModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcQXV0aG9yaXR5TW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/ClaimSuccessModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/ClaimSuccessModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcQ2xhaW1TdWNjZXNzTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/CloseReopenFeatureModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/CloseReopenFeatureModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcQ2xvc2VSZW9wZW5GZWF0dXJlTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/FeatureCreationModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/FeatureCreationModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcRmVhdHVyZUNyZWF0aW9uTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/HospitalSearchModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/HospitalSearchModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcSG9zcGl0YWxTZWFyY2hNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/PartyDetailModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/PartyDetailModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcUGFydHlEZXRhaWxNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/PassengerModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/PassengerModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcUGFzc2VuZ2VyTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/PolicySearchModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/PolicySearchModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcUG9saWN5U2VhcmNoTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/PropertyDamageModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/PropertyDamageModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcUHJvcGVydHlEYW1hZ2VNb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/SubClaimModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/SubClaimModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcU3ViQ2xhaW1Nb2RhbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/ThirdPartyModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/ThirdPartyModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcVGhpcmRQYXJ0eU1vZGFsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/VendorDetailModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/VendorDetailModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcVmVuZG9yRGV0YWlsTW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/VendorViewModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/VendorViewModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcVmVuZG9yVmlld01vZGFsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Modals/WitnessModal.razor]
+[c:/Projects/ClaimsPortal/Components/Modals/WitnessModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xNb2RhbHNcV2l0bmVzc01vZGFsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Claim/ClaimDetail.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Claim/ClaimDetail.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDbGFpbVxDbGFpbURldGFpbC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Claim/SubClaimView.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Claim/SubClaimView.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDbGFpbVxTdWJDbGFpbVZpZXcucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Counter.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Dashboard.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Dashboard.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEYXNoYm9hcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Error.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolNew.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolNew.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xOZXcucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolSearch.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolSearch.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTZWFyY2gucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep1_LossDetails.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep1_LossDetails.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTdGVwMV9Mb3NzRGV0YWlscy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep2_PolicyAndInsured.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep2_PolicyAndInsured.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTdGVwMl9Qb2xpY3lBbmRJbnN1cmVkLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep3_DriverAndInjury.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep3_DriverAndInjury.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTdGVwM19Ecml2ZXJBbmRJbmp1cnkucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep4_ThirdParties.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep4_ThirdParties.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTdGVwNF9UaGlyZFBhcnRpZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep5_ReviewAndSave.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Fnol/FnolStep5_ReviewAndSave.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xGbm9sXEZub2xTdGVwNV9SZXZpZXdBbmRTYXZlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/NotFound.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/NotFound.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RGb3VuZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/VendorMaster.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/VendorMaster.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xWZW5kb3JNYXN0ZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Pages/Weather.razor]
+[c:/Projects/ClaimsPortal/Components/Pages/Weather.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Routes.razor]
+[c:/Projects/ClaimsPortal/Components/Routes.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/AddressSearchInput.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/AddressSearchInput.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQWRkcmVzc1NlYXJjaElucHV0LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/AddressTemplate.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/AddressTemplate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQWRkcmVzc1RlbXBsYXRlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/AttorneyInfoForm.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/AttorneyInfoForm.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQXR0b3JuZXlJbmZvRm9ybS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/ClaimsLogPanel.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/ClaimsLogPanel.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQ2xhaW1zTG9nUGFuZWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/CommunicationPanel.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/CommunicationPanel.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQ29tbXVuaWNhdGlvblBhbmVsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/FinancialsPanel.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/FinancialsPanel.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcRmluYW5jaWFsc1BhbmVsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/InjuryInfoForm.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/InjuryInfoForm.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcSW5qdXJ5SW5mb0Zvcm0ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/InjuryTemplate.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/InjuryTemplate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcSW5qdXJ5VGVtcGxhdGUucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/InjuryTemplateUnified.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/InjuryTemplateUnified.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcSW5qdXJ5VGVtcGxhdGVVbmlmaWVkLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/PartyInfoForm.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/PartyInfoForm.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcUGFydHlJbmZvRm9ybS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/SectionCard.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/SectionCard.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcU2VjdGlvbkNhcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/SubClaimFullView.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/SubClaimFullView.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcU3ViQ2xhaW1GdWxsVmlldy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/SubClaimsSummaryGrid.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/SubClaimsSummaryGrid.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcU3ViQ2xhaW1zU3VtbWFyeUdyaWQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/SubClaimsSummarySection.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/SubClaimsSummarySection.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcU3ViQ2xhaW1zU3VtbWFyeVNlY3Rpb24ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Shared/WorkingSubClaimsGrid.razor]
+[c:/Projects/ClaimsPortal/Components/Shared/WorkingSubClaimsGrid.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcV29ya2luZ1N1YkNsYWltc0dyaWQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/_Imports.razor]
+[c:/Projects/ClaimsPortal/Components/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Projects/ClaimsPortal/Components/Layout/MainLayout.razor]
+[c:/Projects/ClaimsPortal/Components/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-arqx03sv5y
 
-[C:/Projects/ClaimsPortal/Components/Layout/NavMenu.razor]
+[c:/Projects/ClaimsPortal/Components/Layout/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-43z5cd4mm8
 
-[C:/Projects/ClaimsPortal/Components/Layout/ReconnectModal.razor]
+[c:/Projects/ClaimsPortal/Components/Layout/ReconnectModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcUmVjb25uZWN0TW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-ltnvdfc711
