@@ -1,0 +1,208 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@implements IAsyncDisposable
+
+<div class="address-search-container">
+    <!-- Address Line 1 -->
+    <div class="mb-3">
+        <label class="form-label">@Label1 @(IsRequired ? "*" : "")</label>
+        <div class="input-group">
+            <input type="text" 
+                   class="form-control" 
+                   @bind="Address1" 
+                   @oninput="OnAddress1Input"
+                   placeholder="Enter street address"
+                   autocomplete="off" />
+            <button class="btn btn-outline-secondary" type="button" @onclick="ClearAddress1">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+        
+        <!-- Address Search Suggestions -->
+        @if (ShowSuggestions && Suggestions.Count > 0)
+        {
+            <div class="list-group mt-1" style="max-height: 300px; overflow-y: auto;">
+                @foreach (var suggestion in Suggestions)
+                {
+                    <button type="button" 
+                            class="list-group-item list-group-item-action text-start" 
+                            @onclick="@(() => SelectSuggestion(suggestion))">
+                        <div>@suggestion.Address</div>
+                        <small class="text-muted">@suggestion.City, @suggestion.State @suggestion.ZipCode</small>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Address Line 2 (Optional) -->
+    <div class="mb-3">
+        <label class="form-label">@Label2 (Optional)</label>
+        <input type="text" 
+               class="form-control" 
+               @bind="Address2" 
+               placeholder="Apt, Suite, etc." />
+    </div>
+
+    <!-- City, State, Zip Row -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label">City @(IsRequired ? "*" : "")</label>
+            <input type="text" 
+                   class="form-control" 
+                   @bind="City" 
+                   placeholder="City"
+                   readonly="@AutoFillFromSearch" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">State @(IsRequired ? "*" : "")</label>
+            <input type="text" 
+                   class="form-control" 
+                   @bind="State" 
+                   maxlength="2" 
+                   placeholder="State"
+                   readonly="@AutoFillFromSearch" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Zip Code @(IsRequired ? "*" : "")</label>
+            <input type="text" 
+                   class="form-control" 
+                   @bind="ZipCode" 
+                   maxlength="10" 
+                   placeholder="Zip Code"
+                   readonly="@AutoFillFromSearch" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Address1 { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> Address1Changed { get; set; }
+
+    [Parameter]
+    public string Address2 { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> Address2Changed { get; set; }
+
+    [Parameter]
+    public string City { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> CityChanged { get; set; }
+
+    [Parameter]
+    public string State { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> StateChanged { get; set; }
+
+    [Parameter]
+    public string ZipCode { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ZipCodeChanged { get; set; }
+
+    [Parameter]
+    public string Label1 { get; set; } = "Address";
+
+    [Parameter]
+    public string Label2 { get; set; } = "Address Line 2";
+
+    [Parameter]
+    public bool IsRequired { get; set; } = true;
+
+    [Parameter]
+    public bool AutoFillFromSearch { get; set; } = true;
+
+    [Inject]
+    private IAddressService AddressService { get; set; } = null!;
+
+    private List<AddressSearchResult> Suggestions = [];
+    private bool ShowSuggestions = false;
+    private CancellationTokenSource? _searchCancellation;
+    private System.Threading.Timer? _debounceTimer;
+
+    private async Task OnAddress1Input(ChangeEventArgs e)
+    {
+        var input = e.Value?.ToString() ?? string.Empty;
+        await Address1Changed.InvokeAsync(input);
+
+        // Cancel previous search
+        _searchCancellation?.Cancel();
+        _searchCancellation = new CancellationTokenSource();
+
+        // Reset debounce timer
+        _debounceTimer?.Dispose();
+        
+        if (input.Length < 3)
+        {
+            ShowSuggestions = false;
+            Suggestions = [];
+            return;
+        }
+
+        // Debounce search by 300ms
+        _debounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                Suggestions = await AddressService.SearchAddressesAsync(input);
+                ShowSuggestions = Suggestions.Count > 0;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error searching addresses: {ex.Message}");
+            }
+        }, null, 300, System.Threading.Timeout.Infinite);
+    }
+
+    private async Task SelectSuggestion(AddressSearchResult result)
+    {
+        await Address1Changed.InvokeAsync(result.Address);
+        await CityChanged.InvokeAsync(result.City);
+        await StateChanged.InvokeAsync(result.State);
+        await ZipCodeChanged.InvokeAsync(result.ZipCode);
+
+        Address1 = result.Address;
+        City = result.City;
+        State = result.State;
+        ZipCode = result.ZipCode;
+
+        ShowSuggestions = false;
+        Suggestions = [];
+    }
+
+    private async Task ClearAddress1()
+    {
+        await Address1Changed.InvokeAsync(string.Empty);
+        Address1 = string.Empty;
+        ShowSuggestions = false;
+        Suggestions = [];
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        _debounceTimer?.Dispose();
+        _searchCancellation?.Dispose();
+    }
+}
+
+<style>
+    .address-search-container {
+        /* Component scoped styles */
+    }
+
+    .address-search-container .list-group-item {
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+    }
+
+    .address-search-container .list-group-item:hover {
+        background-color: #f0f0f0;
+    }
+</style>

@@ -1,0 +1,121 @@
+@using ClaimsPortal.Models
+@rendermode InteractiveServer
+
+<div class="card">
+    <div class="card-body">
+        <!-- Working Sub-Claims Grid -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>FEATURE</th>
+                        <th>COVERAGE - CLAIMANT</th>
+                        <th>ASSIGNED ADJUSTER</th>
+                        <th>EXPENSE RESERVE</th>
+                        <th>INDEMNITY RESERVE</th>
+                        <th>EXPENSE PAID</th>
+                        <th>INDEMNITY PAID</th>
+                        <th>STATUS</th>
+                        <th class="text-center">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (SubClaims != null && SubClaims.Any())
+                    {
+                        @foreach (var subClaim in SubClaims)
+                        {
+                            <tr>
+                                <td>
+                                    <strong><span class="text-primary">@subClaim.FeatureNumber</span></strong>
+                                </td>
+                                <td>
+                                    <strong>@subClaim.Coverage</strong> - @subClaim.ClaimantName
+                                </td>
+                                <td>@subClaim.AssignedAdjusterName</td>
+                                <td>@subClaim.ExpenseReserve.ToString("C")</td>
+                                <td>@subClaim.IndemnityReserve.ToString("C")</td>
+                                <td>$0.00</td>
+                                <td>$0.00</td>
+                                <td>
+                                    <span class="badge @GetStatusClass(subClaim.Status)">@subClaim.Status</span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                No sub-claims found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Summary Statistics -->
+        @if (SubClaims != null && SubClaims.Any())
+        {
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <small class="text-muted d-block">Total Expense Reserve</small>
+                            <h5 class="text-info">@TotalExpenseReserve.ToString("C")</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <small class="text-muted d-block">Total Indemnity Reserve</small>
+                            <h5 class="text-warning">@TotalIndemnityReserve.ToString("C")</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <small class="text-muted d-block">Total Reserves</small>
+                            <h5 class="text-primary">@(TotalExpenseReserve + TotalIndemnityReserve).ToString("C")</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <small class="text-muted d-block">Sub-Claims Count</small>
+                            <h5 class="text-success">@SubClaims.Count</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<SubClaim> SubClaims { get; set; } = [];
+
+    private decimal TotalExpenseReserve => SubClaims.Sum(s => s.ExpenseReserve);
+    private decimal TotalIndemnityReserve => SubClaims.Sum(s => s.IndemnityReserve);
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Open" => "bg-success",
+        "In Progress" => "bg-info",
+        "Pending" => "bg-warning",
+        "Closed" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,94 @@
+@using ClaimsPortal.Models
+@rendermode InteractiveServer
+
+<div class="modal fade" id="claimSuccessModal" tabindex="-1" role="dialog" aria-labelledby="claimSuccessModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="claimSuccessModalLabel">
+                    <i class="bi bi-check-circle"></i> Claim Successfully Created
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <div style="font-size: 48px; color: #28a745; margin-bottom: 20px;">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <h6>Your claim has been successfully created and submitted.</h6>
+                </div>
+
+                <div class="card bg-light mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Claim Number</small>
+                                <h5 class="text-primary">@ClaimNumber</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Created Date/Time</small>
+                                <h5>@DateTime.Now.ToString("MM/dd/yyyy hh:mm tt")</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <h6 class="mb-2">
+                        <i class="bi bi-info-circle"></i> Next Steps
+                    </h6>
+                    <ul class="mb-0 small">
+                        <li>Your claim has been submitted for processing</li>
+                        <li>An adjuster will be assigned to review your claim</li>
+                        <li>Sub-claims have been automatically generated for all injured parties</li>
+                        <li>You can view and manage your claim from the dashboard</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">
+                    Close
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="OnViewClaim">
+                    <i class="bi bi-eye"></i> View Claim
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string ClaimNumber { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback OnViewClaim { get; set; }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    public async Task ShowAsync()
+    {
+        await JS.InvokeVoidAsync("ShowModal", "claimSuccessModal");
+    }
+
+    public async Task HideAsync()
+    {
+        await JS.InvokeVoidAsync("HideModal", "claimSuccessModal");
+    }
+
+    private async Task OnCancelClick()
+    {
+        await HideAsync();
+        await OnCancel.InvokeAsync();
+    }
+
+    private async Task OnViewClaimClick()
+    {
+        await HideAsync();
+        await OnViewClaim.InvokeAsync();
+    }
+}

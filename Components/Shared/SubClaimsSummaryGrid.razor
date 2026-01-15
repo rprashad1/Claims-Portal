@@ -1,0 +1,550 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@rendermode InteractiveServer
+
+<div class="card">
+    <div class="card-body">
+        <!-- Action Icons Bar (appears when rows selected) -->
+        @if (SelectedSubClaims.Any())
+        {
+            <div class="action-icons-bar mb-4 p-3 bg-light border rounded">
+                <div class="d-flex justify-content-start align-items-center gap-3 flex-wrap">
+                    @{
+                        var selectedItems = SubClaims.Where(s => SelectedSubClaims.Contains(s.Id)).ToList();
+                        var allClosed = selectedItems.All(s => s.Status == "Closed");
+                        var allOpen = selectedItems.All(s => s.Status == "Open" || s.Status == "Reopened");
+                    }
+                    
+                    @if (allOpen)
+                    {
+                        <div class="action-icon-group text-center">
+                            <button class="btn btn-link p-0" @onclick="ShowCloseModal" title="Close Feature" disabled="@IsProcessing">
+                                <i class="bi bi-x-circle" style="font-size: 1.3rem; color: #dc3545;"></i>
+                            </button>
+                            <div class="action-label">Close<br/>Feature</div>
+                        </div>
+                    }
+                    
+                    @if (allClosed)
+                    {
+                        <div class="action-icon-group text-center">
+                            <button class="btn btn-link p-0" @onclick="ShowReopenModal" title="Reopen Feature" disabled="@IsProcessing">
+                                <i class="bi bi-arrow-counterclockwise" style="font-size: 1.3rem; color: #28a745;"></i>
+                            </button>
+                            <div class="action-label">Reopen<br/>Feature</div>
+                        </div>
+                    }
+                    
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("LossReserve"))" title="Loss Reserve">
+                            <i class="bi bi-piggy-bank" style="font-size: 1.3rem; color: #ff6b35;"></i>
+                        </button>
+                        <div class="action-label">Loss<br/>Reserve</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("ExpenseReserve"))" title="Expense Reserve">
+                            <i class="bi bi-wallet2" style="font-size: 1.3rem; color: #ff6b35;"></i>
+                        </button>
+                        <div class="action-label">Expense<br/>Reserve</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Reassign"))" title="Reassign">
+                            <i class="bi bi-person-check" style="font-size: 1.3rem; color: #4a90e2;"></i>
+                        </button>
+                        <div class="action-label">Reassign</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("LossPayment"))" title="Loss Payment">
+                            <i class="bi bi-cash-stack" style="font-size: 1.3rem; color: #27ae60;"></i>
+                        </button>
+                        <div class="action-label">Loss<br/>Payment</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("ExpensePayment"))" title="Expense Payment">
+                            <i class="bi bi-cash-coin" style="font-size: 1.3rem; color: #27ae60;"></i>
+                        </button>
+                        <div class="action-label">Expense<br/>Payment</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Salvage"))" title="Salvage">
+                            <i class="bi bi-recycle" style="font-size: 1.3rem; color: #17a2b8;"></i>
+                        </button>
+                        <div class="action-label">Salvage</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Subrogation"))" title="Subrogation">
+                            <i class="bi bi-arrow-left-right" style="font-size: 1.3rem; color: #17a2b8;"></i>
+                        </button>
+                        <div class="action-label">Subrogation</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Litigation"))" title="Litigation">
+                            <i class="bi bi-hammer" style="font-size: 1.3rem; color: #e74c3c;"></i>
+                        </button>
+                        <div class="action-label">Litigation</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Arbitration"))" title="Arbitration">
+                            <i class="bi bi-briefcase" style="font-size: 1.3rem; color: #e74c3c;"></i>
+                        </button>
+                        <div class="action-label">Arbitration</div>
+                    </div>
+
+                    <div class="action-icon-group text-center">
+                        <button class="btn btn-link p-0" @onclick="@(() => PerformAction("Negotiation"))" title="Negotiation">
+                            <i class="bi bi-people" style="font-size: 1.3rem; color: #8e44ad;"></i>
+                        </button>
+                        <div class="action-label">Negotiation</div>
+                    </div>
+                </div>
+                
+                @if (IsProcessing)
+                {
+                    <div class="text-center mt-2">
+                        <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                        <span class="ms-2 text-muted">Processing...</span>
+                    </div>
+                }
+                
+                @if (!string.IsNullOrEmpty(StatusMessage))
+                {
+                    <div class="alert @(StatusMessage.Contains("Error") ? "alert-danger" : "alert-success") mt-2 mb-0 py-2">
+                        <small>@StatusMessage</small>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Sub-Claims Grid -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm mb-0 sub-claims-table">
+                <thead>
+                    <!-- Main Header Row -->
+                    <tr class="table-dark">
+                        <th class="checkbox-col" style="width: 35px;" rowspan="2">
+                            <input type="checkbox" class="form-check-input" @onchange="SelectAll" />
+                        </th>
+                        <th class="features-col" rowspan="2">FEATURES</th>
+                        <th class="text-end" style="width: 80px;" rowspan="2">LIMIT<br/>($)</th>
+                        <th class="text-end" style="width: 65px;" rowspan="2">DEDUCT<br/>($)</th>
+                        <th class="text-end" style="width: 65px;" rowspan="2">OFFSET<br/>($)</th>
+                        <th class="text-center" style="width: 120px;" rowspan="2">ASSIGNED<br/>ADJUSTER</th>
+                        <th colspan="2" class="text-center border-start">RESERVES ($)</th>
+                        <th colspan="2" class="text-center border-start">PAID ($)</th>
+                        <th colspan="2" class="text-center border-start">RECOVERY RESERVE ($)</th>
+                        <th class="text-end" style="width: 80px;" rowspan="2">RECOVERED<br/>($)</th>
+                        <th class="text-center" style="width: 70px;" rowspan="2">STATUS</th>
+                    </tr>
+                    <!-- Sub Header Row -->
+                    <tr class="table-secondary sub-header-row">
+                        <th class="text-center small border-start">LOSS</th>
+                        <th class="text-center small">EXPENSE</th>
+                        <th class="text-center small border-start">LOSS</th>
+                        <th class="text-center small">EXPENSE</th>
+                        <th class="text-center small border-start">SALVAGE</th>
+                        <th class="text-center small">SUBROGATION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (SubClaims != null && SubClaims.Any())
+                    {
+                        @foreach (var subClaim in GetPagedSubClaims())
+                        {
+                            <tr class="@(SelectedSubClaims.Contains(subClaim.Id) ? "table-primary" : "")">
+                                <td class="checkbox-col">
+                                    <input type="checkbox" 
+                                           class="form-check-input" 
+                                           @onchange="@((ChangeEventArgs e) => ToggleSubClaim(subClaim.Id, (bool)e.Value!))" 
+                                           checked="@SelectedSubClaims.Contains(subClaim.Id)" />
+                                </td>
+                                <td class="features-col">
+                                    <span class="feature-number">@subClaim.FeatureNumber.ToString("D2")</span>
+                                    <span class="coverage-code">@subClaim.Coverage</span> - 
+                                    <span class="claimant-name">@subClaim.ClaimantName</span>
+                                </td>
+                                <td class="text-end">@FormatCoverageLimits(subClaim.CoverageLimits)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.Deductible)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.Offset)</td>
+                                <td class="text-center adjuster-col">@(subClaim.AssignedAdjusterName ?? "Unassigned")</td>
+                                <td class="text-end border-start">@FormatCurrency(subClaim.IndemnityReserve)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.ExpenseReserve)</td>
+                                <td class="text-end border-start">@FormatCurrency(subClaim.IndemnityPaid)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.ExpensePaid)</td>
+                                <td class="text-end border-start">@FormatCurrency(subClaim.SalvageReserve)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.SubrogationReserve)</td>
+                                <td class="text-end">@FormatCurrency(subClaim.Recoveries)</td>
+                                <td class="text-center status-col">
+                                    <span class="badge @GetStatusBadgeClass(subClaim.Status)">@subClaim.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="14" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                                No sub-claims found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (SubClaims != null && SubClaims.Any())
+        {
+            <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+                <small class="text-muted">
+                    Records: @GetRecordRange() of @SubClaims.Count
+                </small>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted">Go to page:</span>
+                    <nav aria-label="Sub-claims pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="@(() => ChangePage(1))" disabled="@(CurrentPage == 1)">1</button>
+                            </li>
+                            <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="@(() => ChangePage(CurrentPage - 1))" disabled="@(CurrentPage == 1)">&lt;&lt;</button>
+                            </li>
+                            <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="@(() => ChangePage(CurrentPage - 1))" disabled="@(CurrentPage == 1)">&lt;</button>
+                            </li>
+                            <li class="page-item active">
+                                <span class="page-link">@CurrentPage</span>
+                            </li>
+                            <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="@(() => ChangePage(CurrentPage + 1))" disabled="@(CurrentPage == TotalPages)">&gt;</button>
+                            </li>
+                            <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="@(() => ChangePage(TotalPages))" disabled="@(CurrentPage == TotalPages)">&gt;&gt;</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" title="Export to Excel">
+                        <i class="bi bi-file-earmark-excel"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" title="Print">
+                        <i class="bi bi-printer"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Close/Reopen Feature Modal -->
+<CloseReopenFeatureModal @ref="closeReopenModal" OnActionCompleted="HandleCloseReopenCompleted" />
+
+<style>
+    .action-icons-bar {
+        border: 1px solid #dee2e6;
+        background-color: #f8f9fa !important;
+    }
+
+    .action-icon-group {
+        min-width: 70px;
+    }
+
+    .action-icon-group button {
+        display: block;
+        margin: 0 auto;
+        color: #333;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .action-icon-group button:hover:not(:disabled) {
+        transform: scale(1.1);
+    }
+    
+    .action-icon-group button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .action-label {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: #333;
+        white-space: nowrap;
+        margin-top: 2px;
+        line-height: 1.1;
+    }
+
+    .sub-claims-table {
+        font-size: 0.85rem;
+    }
+
+    .sub-claims-table thead th {
+        font-size: 0.75rem;
+        font-weight: 600;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .sub-header-row th {
+        font-weight: 500 !important;
+        padding: 0.25rem !important;
+        font-size: 0.7rem !important;
+    }
+
+    .checkbox-col {
+        width: 35px;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .features-col {
+        min-width: 220px;
+        white-space: nowrap;
+    }
+
+    .feature-number {
+        display: inline-block;
+        background-color: #0d6efd;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        margin-right: 4px;
+    }
+
+    .coverage-code {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .claimant-name {
+        color: #212529;
+    }
+
+    .adjuster-col {
+        font-size: 0.8rem;
+    }
+
+    .status-col {
+        min-width: 70px;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .table-striped > tbody > tr:nth-of-type(odd) > * {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .table-primary {
+        --bs-table-bg: #cfe2ff !important;
+    }
+
+    .border-start {
+        border-left: 1px solid #dee2e6 !important;
+    }
+
+    .pagination .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<SubClaim> SubClaims { get; set; } = [];
+    
+    [Parameter]
+    public EventCallback OnSubClaimStatusChanged { get; set; }
+
+    [Inject]
+    private IDatabaseClaimService DatabaseClaimService { get; set; } = null!;
+
+    // Modal reference
+    private CloseReopenFeatureModal? closeReopenModal;
+
+    private List<int> SelectedSubClaims = [];
+    private int CurrentPage = 1;
+    private int PageSize = 10;
+    private bool IsProcessing = false;
+    private string StatusMessage = "";
+
+    private int TotalPages => SubClaims.Count > 0 ? (int)Math.Ceiling((double)SubClaims.Count / PageSize) : 1;
+
+    private List<SubClaim> GetPagedSubClaims()
+    {
+        return SubClaims
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    private string GetRecordRange()
+    {
+        var start = ((CurrentPage - 1) * PageSize) + 1;
+        var end = Math.Min(CurrentPage * PageSize, SubClaims.Count);
+        return $"{start} - {end}";
+    }
+
+    private void ToggleSubClaim(int id, bool isChecked)
+    {
+        StatusMessage = ""; // Clear any previous status
+        if (isChecked && !SelectedSubClaims.Contains(id))
+        {
+            SelectedSubClaims.Add(id);
+        }
+        else if (!isChecked && SelectedSubClaims.Contains(id))
+        {
+            SelectedSubClaims.Remove(id);
+        }
+    }
+
+    private void SelectAll(ChangeEventArgs e)
+    {
+        StatusMessage = "";
+        SelectedSubClaims.Clear();
+        if ((bool)e.Value!)
+        {
+            SelectedSubClaims = SubClaims.Select(s => s.Id).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Show the Close Feature modal with reason selection
+    /// </summary>
+    private async Task ShowCloseModal()
+    {
+        if (!SelectedSubClaims.Any() || closeReopenModal == null)
+            return;
+
+        var selectedItems = SubClaims.Where(s => SelectedSubClaims.Contains(s.Id)).ToList();
+        await closeReopenModal.ShowCloseAsync(selectedItems);
+    }
+
+    /// <summary>
+    /// Show the Reopen Feature modal with reason selection
+    /// </summary>
+    private async Task ShowReopenModal()
+    {
+        if (!SelectedSubClaims.Any() || closeReopenModal == null)
+            return;
+
+        var selectedItems = SubClaims.Where(s => SelectedSubClaims.Contains(s.Id)).ToList();
+        await closeReopenModal.ShowReopenAsync(selectedItems);
+    }
+
+    /// <summary>
+    /// Handle completion of close/reopen action from modal
+    /// </summary>
+    private async Task HandleCloseReopenCompleted(CloseReopenFeatureModal.CloseReopenResult result)
+    {
+        if (result.Success)
+        {
+            // Update local status for immediate UI feedback
+            foreach (var id in result.AffectedSubClaimIds)
+            {
+                var subClaim = SubClaims.FirstOrDefault(s => s.Id == id);
+                if (subClaim != null)
+                {
+                    subClaim.Status = result.IsCloseOperation ? "Closed" : "Reopened";
+                    
+                    // Update reserves if closed
+                    if (result.IsCloseOperation)
+                    {
+                        subClaim.ExpenseReserve = 0;
+                        subClaim.IndemnityReserve = 0;
+                    }
+                }
+            }
+            
+            StatusMessage = result.IsCloseOperation 
+                ? $"Successfully closed {result.AffectedSubClaimIds.Count} feature(s)."
+                : $"Successfully reopened {result.AffectedSubClaimIds.Count} feature(s).";
+            
+            SelectedSubClaims.Clear();
+            
+            // Notify parent to refresh claim status
+            await OnSubClaimStatusChanged.InvokeAsync();
+        }
+    }
+
+    private void PerformAction(string action)
+    {
+        if (!SelectedSubClaims.Any())
+            return;
+
+        var selectedClaims = SubClaims.Where(s => SelectedSubClaims.Contains(s.Id)).ToList();
+        
+        // Actions would be implemented based on the action type
+        Console.WriteLine($"Action: {action}, SubClaims: {string.Join(",", SelectedSubClaims)}");
+        
+        // TODO: Open respective modal dialogs for each action
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            CurrentPage = page;
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Open" => "bg-success",
+        "Closed" => "bg-secondary",
+        "Reopened" => "bg-warning text-dark",
+        _ => "bg-info"
+    };
+
+    private string FormatCurrency(decimal value)
+    {
+        return value.ToString("N2");
+    }
+
+    /// <summary>
+    /// Format coverage limits for display.
+    /// Handles formats like "100/300", "50,000", or plain numbers.
+    /// </summary>
+    private string FormatCoverageLimits(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "0.00";
+        
+        // If it's a ratio format like "100/300", display as-is
+        if (value.Contains('/'))
+            return value;
+        
+        // Try to parse as a number and format with commas
+        var cleanValue = value.Replace("$", "").Replace(",", "").Trim();
+        if (decimal.TryParse(cleanValue, out var result))
+            return result.ToString("N2");
+        
+        // Return original value if can't parse
+        return value;
+    }
+
+    private decimal ParseDecimal(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return 0;
+        
+        // Remove currency symbols and commas
+        var cleanValue = value.Replace("$", "").Replace(",", "").Trim();
+        return decimal.TryParse(cleanValue, out var result) ? result : 0;
+    }
+}

@@ -1,0 +1,582 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@using ClaimsPortal.Components.Shared
+@rendermode InteractiveServer
+
+<SectionCard Title="Third Parties" 
+             SubTitle="Capture information for other vehicles, pedestrians, and damaged properties"
+             StepNumber="4"
+             OnNext="OnNext"
+             OnPrevious="OnPrevious">
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Third Party Vehicles & Parties</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowAddThirdPartyModal">
+                    <i class="bi bi-plus-circle"></i> Add Third Party
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (ThirdParties.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Injured</th>
+                                <th>Attorney</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var party in ThirdParties)
+                            {
+                                <tr>
+                                    <td>
+                                        @party.Name
+                                        @if (party.Type == "Vehicle")
+                                            {
+                                                <div class="small text-muted mt-1">
+                                                    @if (!string.IsNullOrEmpty(party.Vehicle?.Vin))
+                                                    {
+                                                        <div>VIN: @party.Vehicle.Vin</div>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(party.Vehicle?.PlateNumber) || !string.IsNullOrEmpty(party.Vehicle?.PlateState))
+                                                    {
+                                                        <div>Plate: @party.Vehicle?.PlateNumber @((!string.IsNullOrEmpty(party.Vehicle?.PlateState)) ? ("/" + party.Vehicle?.PlateState) : "")</div>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(party.Driver?.Name))
+                                                    {
+                                                        <div>Driver: @party.Driver?.Name</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="text-muted">Driver: (not entered)</div>
+                                                    }
+                                                </div>
+                                            }
+                                            @* If this is a passenger, show the assigned VIN and matching vehicle details (Year/Make/Model) *@
+                                        @if (party.Type == "Passenger" && !string.IsNullOrEmpty(party.SelectedVehicleVin))
+                                        {
+                                            var assigned = FindVehicleByVin(party.SelectedVehicleVin);
+                                            <div class="small text-muted mt-1">
+                                                <div>Assigned Vehicle: @party.SelectedVehicleVin @((assigned != null) ? ($" {assigned.Year}/{assigned.Make}/{assigned.Model}") : "")</div>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-info">@party.Type</span></td>
+                                    <td>
+                                        @if (party.WasInjured)
+                                        {
+                                            <span class="badge bg-danger">Yes</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (party.HasAttorney)
+                                        {
+                                            <span class="badge bg-primary">Yes</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="@(() => AddFeatureForThirdParty(party))" title="Add Feature">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info me-1" @onclick="@(() => EditThirdParty(party))" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => RemoveThirdParty(party.Name))" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mb-0">No third parties added yet. Click the button above to add third party information.</p>
+            }
+        </div>
+    </div>
+
+    <!-- Third Party Features/Sub-Claims Grid -->
+    @if (ThirdPartySubClaims.Count > 0)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-layers"></i> Third Party Features/Sub-Claims</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Feature</th>
+                                <th>Coverage/Limits</th>
+                                <th>Claimant</th>
+                                <th>Expense Reserve</th>
+                                <th>Indemnity Reserve</th>
+                                <th>Assigned Adjuster</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var feature in ThirdPartySubClaims)
+                            {
+                                <tr>
+                                    <td><strong>@feature.FeatureNumber</strong></td>
+                                    <td>@feature.Coverage - @feature.CoverageLimits</td>
+                                    <td>@feature.ClaimantName</td>
+                                    <td>@feature.ExpenseReserve.ToString("C")</td>
+                                    <td>@feature.IndemnityReserve.ToString("C")</td>
+                                    <td>@feature.AssignedAdjusterName</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                @onclick="@(() => EditFeature(feature))" title="Edit Feature">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                @onclick="@(() => RemoveFeature(feature.Id))" title="Delete Feature">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (HasPropertyDamage)
+    {
+        <!-- Property Damage Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Property Damage Information</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowAddPropertyDamageModal">
+                        <i class="bi bi-plus-circle"></i> Add Property Damage
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (PropertyDamages.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Property Type</th>
+                                    <th>Owner</th>
+                                    <th>Location</th>
+                                    <th>Estimated Damage</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var property in PropertyDamages)
+                                {
+                                    <tr>
+                                        <td>@property.PropertyType</td>
+                                        <td>@property.OwnerName</td>
+                                        <td>@GetPropertyLocation(property)</td>
+                                        <td>@property.EstimatedDamage.ToString("C")</td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-success me-1" 
+                                                    @onclick="@(() => AddFeatureForPropertyDamage(property))" title="Add Feature">
+                                                <i class="bi bi-plus-circle"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-info me-1" 
+                                                    @onclick="@(() => EditPropertyDamage(property))" title="Edit Property Damage">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="@(() => RemovePropertyDamage(property.Id))" title="Delete Property Damage">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No property damage recorded yet. Click the button above to add property damage information.</p>
+                }
+            </div>
+        </div>
+    }
+</SectionCard>
+
+<ThirdPartyModal @ref="thirdPartyModal" OnThirdPartyAdded="OnThirdPartyAddedOrUpdated" OnCancelled="@(() => {})" 
+                 NatureOfInjuries="NatureOfInjuries" ThirdPartyVehicleVins="@GetThirdPartyVehicleVins()" />
+<FeatureCreationModal @ref="featureCreationModal" 
+                     OnFeatureCreated="OnFeatureCreated" 
+                     OnCancelled="OnFeatureCreationCancelled"
+                     OnCreationComplete="OnFeatureCreationComplete" />
+<PropertyDamageModal @ref="propertyDamageModal" OnPropertyDamageAdded="OnPropertyDamageAdded" OnCancelled="@(() => {})" />
+
+@code {
+    [Inject]
+    private ILookupService LookupService { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public bool HasPropertyDamage { get; set; }
+
+    [Parameter]
+    public int StartingFeatureNumber { get; set; } = 1;
+
+    [Parameter]
+    public List<ThirdParty>? InitialThirdParties { get; set; }
+
+    [Parameter]
+    public List<PropertyDamage>? InitialPropertyDamages { get; set; }
+
+    private ThirdPartyModal? thirdPartyModal;
+    private FeatureCreationModal? featureCreationModal;
+    private PropertyDamageModal? propertyDamageModal;
+    private List<ThirdParty> ThirdParties = [];
+    private List<SubClaim> ThirdPartySubClaims = [];
+    private List<PropertyDamage> PropertyDamages = [];
+    private List<string> NatureOfInjuries = [];
+    private string CurrentClaimantName = string.Empty;
+    private string CurrentClaimType = "ThirdParty";
+    private PropertyDamage? CurrentPropertyDamage = null;
+    private ThirdParty? EditingThirdParty = null;
+    private ThirdParty? CurrentThirdParty = null;  // Track which third party we're creating feature for
+    private int FeatureCounter = 0;
+    private int PropertyDamageIdCounter = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        NatureOfInjuries = await LookupService.GetNatureOfInjuriesAsync();
+        FeatureCounter = StartingFeatureNumber - 1;
+        
+        if (InitialThirdParties != null && InitialThirdParties.Count > 0)
+        {
+            ThirdParties = InitialThirdParties;
+        }
+        
+        if (InitialPropertyDamages != null && InitialPropertyDamages.Count > 0)
+        {
+            PropertyDamages = InitialPropertyDamages;
+            PropertyDamageIdCounter = PropertyDamages.Max(p => p.Id);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (InitialThirdParties != null && InitialThirdParties.Count > 0 && ThirdParties.Count == 0)
+        {
+            ThirdParties = InitialThirdParties;
+        }
+        
+        if (InitialPropertyDamages != null && InitialPropertyDamages.Count > 0 && PropertyDamages.Count == 0)
+        {
+            PropertyDamages = InitialPropertyDamages;
+        }
+
+        // Diagnostic logging to help trace parameter propagation
+        try
+        {
+            Console.WriteLine($"[DEBUG] FnolStep4 Parameters: HasPropertyDamage={HasPropertyDamage} InitialPropertyDamages.Count={InitialPropertyDamages?.Count}");
+        }
+        catch { }
+    }
+
+    public async Task<bool> ValidateAsync() => true;
+
+    public List<ThirdParty> GetThirdParties() => ThirdParties;
+
+    public List<SubClaim> GetThirdPartySubClaims() => ThirdPartySubClaims;
+
+    public List<PropertyDamage> GetPropertyDamages() => PropertyDamages;
+
+    private async Task ShowAddThirdPartyModal()
+    {
+        EditingThirdParty = null;
+        if (thirdPartyModal != null)
+            await thirdPartyModal.ShowAsync();
+    }
+
+    private async Task EditThirdParty(ThirdParty party)
+    {
+        EditingThirdParty = party;
+        if (thirdPartyModal != null)
+            await thirdPartyModal.ShowAsync(party);
+    }
+
+    private async Task AddFeatureForThirdParty(ThirdParty party)
+    {
+        // Determine the claimant name based on party type and injured party selection
+        if (party.Type == "Vehicle")
+        {
+            // For vehicle, check InjuredParty field to determine claimant
+            if (party.InjuredParty == "Driver" && party.Driver != null && !string.IsNullOrEmpty(party.Driver.Name))
+            {
+                CurrentClaimantName = party.Driver.Name;
+                CurrentClaimType = "ThirdPartyDriver";
+            }
+            else
+            {
+                // Owner is the claimant
+                CurrentClaimantName = party.Name;
+                CurrentClaimType = "ThirdPartyOwner";
+            }
+        }
+        else
+        {
+            CurrentClaimantName = party.Name;
+            CurrentClaimType = "ThirdParty" + party.Type;
+        }
+        
+        CurrentThirdParty = party;
+        CurrentPropertyDamage = null;
+        
+        await InvokeAsync(StateHasChanged);
+        
+        if (featureCreationModal != null)
+            await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+    }
+
+    private async Task AddFeatureForPropertyDamage(PropertyDamage property)
+    {
+        CurrentClaimantName = property.OwnerName;
+        CurrentClaimType = "PropertyDamage";
+        CurrentPropertyDamage = property;
+        CurrentThirdParty = null;
+        
+        await InvokeAsync(StateHasChanged);
+        
+        if (featureCreationModal != null)
+            await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+    }
+
+    private async Task ShowAddPropertyDamageModal()
+    {
+        CurrentPropertyDamage = null;
+        if (propertyDamageModal != null)
+            await propertyDamageModal.ShowAsync();
+    }
+
+    private async Task EditPropertyDamage(PropertyDamage property)
+    {
+        CurrentPropertyDamage = property;
+        if (propertyDamageModal != null)
+            await propertyDamageModal.ShowAsync(property);
+    }
+
+    private async Task OnPropertyDamageAdded(PropertyDamage propertyDamage)
+    {
+        var existing = PropertyDamages.FirstOrDefault(p => p.Id == propertyDamage.Id);
+        if (existing != null)
+        {
+            existing.OwnerName = propertyDamage.OwnerName;
+            existing.OwnerAddress = propertyDamage.OwnerAddress;
+            existing.OwnerPhoneNumber = propertyDamage.OwnerPhoneNumber;
+            existing.OwnerEmail = propertyDamage.OwnerEmail;
+            existing.OwnerFeinSsNumber = propertyDamage.OwnerFeinSsNumber;
+            existing.PropertyAddress = propertyDamage.PropertyAddress;
+            existing.PropertyType = propertyDamage.PropertyType;
+            existing.Description = propertyDamage.Description;
+            existing.DamageDescription = propertyDamage.DamageDescription;
+            existing.EstimatedDamage = propertyDamage.EstimatedDamage;
+        }
+        else
+        {
+            propertyDamage.Id = ++PropertyDamageIdCounter;
+            PropertyDamages.Add(propertyDamage);
+            
+            // After adding property damage, automatically open feature creation modal
+            CurrentPropertyDamage = propertyDamage;
+            CurrentClaimantName = propertyDamage.OwnerName;
+            CurrentClaimType = "PropertyDamage";
+            CurrentThirdParty = null;
+            
+            await InvokeAsync(StateHasChanged);
+            
+            if (featureCreationModal != null)
+                await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+        }
+    }
+
+    private async Task OnThirdPartyAddedOrUpdated(ThirdParty party)
+    {
+        if (EditingThirdParty != null)
+        {
+            // Update existing third party
+            var existingIndex = ThirdParties.FindIndex(p => p.Name == EditingThirdParty.Name);
+            if (existingIndex >= 0)
+            {
+                var oldName = EditingThirdParty.Driver?.Name ?? EditingThirdParty.Name;
+                var newName = party.Driver?.Name ?? party.Name;
+                
+                if (oldName != newName)
+                {
+                    foreach (var feature in ThirdPartySubClaims.Where(f => f.ClaimantName == oldName))
+                    {
+                        feature.ClaimantName = newName;
+                    }
+                }
+                
+                ThirdParties[existingIndex] = party;
+            }
+            EditingThirdParty = null;
+        }
+        else
+        {
+            // Add new third party
+            ThirdParties.Add(party);
+            
+            // ALWAYS show feature creation for new third parties (regardless of injury status)
+            // Property type is handled separately in property damage section
+            if (party.Type != "Property")
+            {
+                // Determine the claimant name
+                if (party.Type == "Vehicle")
+                {
+                    // For vehicle, check InjuredParty field to determine claimant
+                    if (party.InjuredParty == "Driver" && party.Driver != null && !string.IsNullOrEmpty(party.Driver.Name))
+                    {
+                        CurrentClaimantName = party.Driver.Name;
+                        CurrentClaimType = "ThirdPartyDriver";
+                    }
+                    else
+                    {
+                        // Owner is the claimant (default)
+                        CurrentClaimantName = party.Name;
+                        CurrentClaimType = "ThirdPartyOwner";
+                    }
+                }
+                else
+                {
+                    CurrentClaimantName = party.Name;
+                    CurrentClaimType = "ThirdParty" + party.Type;
+                }
+                
+                CurrentThirdParty = party;
+                CurrentPropertyDamage = null;
+                
+                await InvokeAsync(StateHasChanged);
+                
+                if (featureCreationModal != null)
+                    await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+            }
+        }
+    }
+
+    private async Task EditFeature(SubClaim feature)
+    {
+        CurrentClaimantName = feature.ClaimantName;
+        CurrentClaimType = feature.ClaimType;
+        
+        await InvokeAsync(StateHasChanged);
+        
+        if (featureCreationModal != null)
+            await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+    }
+
+    private void OnFeatureCreated(SubClaim subClaim)
+    {
+        FeatureCounter++;
+        subClaim.FeatureNumber = FeatureCounter;
+        subClaim.ClaimantName = CurrentClaimantName;
+        subClaim.ClaimType = CurrentClaimType;
+        
+        ThirdPartySubClaims.Add(subClaim);
+    }
+
+    private async Task OnFeatureCreationCancelled()
+    {
+        CurrentPropertyDamage = null;
+        CurrentThirdParty = null;
+    }
+
+    private async Task OnFeatureCreationComplete()
+    {
+        CurrentPropertyDamage = null;
+        CurrentThirdParty = null;
+    }
+
+    private void RemoveFeature(int id)
+    {
+        ThirdPartySubClaims.RemoveAll(f => f.Id == id);
+        RenumberFeatures();
+    }
+
+    private void RemovePropertyDamage(int id)
+    {
+        var property = PropertyDamages.FirstOrDefault(p => p.Id == id);
+        PropertyDamages.RemoveAll(p => p.Id == id);
+        
+        // Also remove associated sub-claims for this property damage
+        if (property != null)
+        {
+            ThirdPartySubClaims.RemoveAll(f => f.ClaimType == "PropertyDamage" && f.ClaimantName == property.OwnerName);
+        }
+        RenumberFeatures();
+    }
+
+    private void RenumberFeatures()
+    {
+        for (int i = 0; i < ThirdPartySubClaims.Count; i++)
+        {
+            ThirdPartySubClaims[i].FeatureNumber = i + StartingFeatureNumber;
+        }
+        FeatureCounter = StartingFeatureNumber + ThirdPartySubClaims.Count - 1;
+    }
+
+    private void RemoveThirdParty(string name)
+    {
+        var party = ThirdParties.FirstOrDefault(p => p.Name == name);
+        ThirdParties.RemoveAll(p => p.Name == name);
+        
+        // Remove features for this third party
+        if (party != null)
+        {
+            var claimantName = party.Driver?.Name ?? party.Name;
+            ThirdPartySubClaims.RemoveAll(f => f.ClaimantName == claimantName || f.ClaimantName == party.Name);
+        }
+        RenumberFeatures();
+    }
+
+    private string GetPropertyLocation(PropertyDamage property)
+    {
+        if (property.PropertyAddress == null)
+            return "-";
+        
+        var location = property.PropertyAddress.GetCityStateZip();
+        return string.IsNullOrWhiteSpace(location) ? "-" : location;
+    }
+
+    private List<string> GetThirdPartyVehicleVins()
+    {
+        return ThirdParties
+            .Where(p => p.Type == "Vehicle" && p.Vehicle != null && !string.IsNullOrEmpty(p.Vehicle.Vin))
+            .Select(p => p.Vehicle!.Vin!)
+            .Distinct()
+            .ToList();
+    }
+
+    private VehicleInfo? FindVehicleByVin(string vin)
+    {
+        return ThirdParties.FirstOrDefault(p => p.Type == "Vehicle" && p.Vehicle != null && p.Vehicle.Vin == vin)?.Vehicle;
+    }
+}

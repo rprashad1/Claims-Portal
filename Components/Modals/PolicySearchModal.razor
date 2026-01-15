@@ -1,0 +1,157 @@
+@using ClaimsPortal.Models
+
+<div class="modal fade" id="policySearchModal" tabindex="-1" role="dialog" aria-labelledby="policySearchLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="policySearchLabel">Search Policies</h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Search Type</label>
+                        <select class="form-select" @bind="SearchType">
+                            <option value="PolicyNumber">Policy Number</option>
+                            <option value="InsuredName">Insured Name</option>
+                            <option value="VIN">Vehicle VIN</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Search Term</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" @bind="SearchTerm" placeholder="Enter search term..." />
+                            <button class="btn btn-primary" type="button" @onclick="PerformSearch">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                @if (IsSearching)
+                {
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (SearchResults?.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th></th>
+                                    <th>Policy Number</th>
+                                    <th>Insured Name</th>
+                                    <th>Effective Date</th>
+                                    <th>Expiration Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var policy in SearchResults)
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="radio" name="selectedPolicy" value="@policy.PolicyNumber" 
+                                                   @onchange="@((ChangeEventArgs e) => SelectedPolicyNumber = (string?)e.Value)" />
+                                        </td>
+                                        <td><strong>@policy.PolicyNumber</strong></td>
+                                        <td>@policy.InsuredName</td>
+                                        <td>@policy.EffectiveDate.ToString("MM/dd/yyyy")</td>
+                                        <td>@policy.ExpiryDate.ToString("MM/dd/yyyy")</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(policy.Status)">@policy.Status</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (!IsSearching && HasSearched)
+                {
+                    <div class="alert alert-info">
+                        No policies found matching your search criteria.
+                    </div>
+                }
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="OnSelectPolicy" disabled="@string.IsNullOrEmpty(SelectedPolicyNumber)">
+                    Select Policy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<string> OnPolicySelected { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    private string SearchType = "PolicyNumber";
+    private string SearchTerm = string.Empty;
+    private string? SelectedPolicyNumber;
+    private List<Policy>? SearchResults;
+    private bool IsSearching;
+    private bool HasSearched;
+
+    public async Task ShowAsync()
+    {
+        SearchTerm = string.Empty;
+        SelectedPolicyNumber = null;
+        SearchResults = null;
+        HasSearched = false;
+        
+        await JS.InvokeVoidAsync("ShowModal", "policySearchModal");
+    }
+
+    private async Task PerformSearch()
+    {
+        if (string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            return;
+        }
+
+        IsSearching = true;
+        HasSearched = true;
+
+        // Simulate API call
+        await Task.Delay(300);
+
+        // Mock search - in real app this would call IPolicyService
+        IsSearching = false;
+    }
+
+    private async Task OnSelectPolicy()
+    {
+        if (!string.IsNullOrEmpty(SelectedPolicyNumber))
+        {
+            await OnPolicySelected.InvokeAsync(SelectedPolicyNumber);
+            await JS.InvokeVoidAsync("HideModal", "policySearchModal");
+        }
+    }
+
+    private async Task OnCancel()
+    {
+        await OnCancelled.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "policySearchModal");
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Expired" => "bg-warning",
+        "Cancelled" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+}

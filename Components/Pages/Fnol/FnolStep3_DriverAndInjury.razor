@@ -1,0 +1,943 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@using ClaimsPortal.Components.Shared
+@rendermode InteractiveServer
+@inject IVendorService VendorService
+
+<SectionCard Title="Driver & Injury Information" 
+             SubTitle="Capture driver details, injury information, and attorney representation"
+             StepNumber="3"
+             OnNext="OnNext"
+             OnPrevious="OnPrevious"
+             IsNextDisabled="@IsNextDisabled">
+
+    <!-- Driver Information Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">Driver Information</h6>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="driverType" id="driverInsured" value="insured"
+                           @onchange="@((ChangeEventArgs e) => SetDriverType((string?)e.Value))" checked />
+                    <label class="form-check-label" for="driverInsured">
+                        Insured was the Driver
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="driverType" id="driverListed" value="listed"
+                           @onchange="@((ChangeEventArgs e) => SetDriverType((string?)e.Value))" />
+                    <label class="form-check-label" for="driverListed">
+                        Driver is Listed on Policy
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="driverType" id="driverUnlisted" value="unlisted"
+                           @onchange="@((ChangeEventArgs e) => SetDriverType((string?)e.Value))" />
+                    <label class="form-check-label" for="driverUnlisted">
+                        Driver is Not Listed on Policy
+                    </label>
+                </div>
+            </div>
+
+            @if (DriverType == "unlisted")
+            {
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Driver Name *</label>
+                        <input type="text" class="form-control" @bind="Driver.Name" placeholder="Full Name" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" @bind="Driver.DateOfBirth" />
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">License Number</label>
+                        <input type="text" class="form-control" @bind="Driver.LicenseNumber" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">License State</label>
+                        <input type="text" class="form-control" @bind="Driver.LicenseState" maxlength="2" />
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Street Address</label>
+                        <input type="text" class="form-control" @bind="Driver.Address.StreetAddress" placeholder="Street Address" />
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Address Line 2</label>
+                        <input type="text" class="form-control" @bind="Driver.Address.AddressLine2" placeholder="Apt, Suite, etc." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">City</label>
+                        <input type="text" class="form-control" @bind="Driver.Address.City" placeholder="City" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">State</label>
+                        <input type="text" class="form-control" @bind="Driver.Address.State" maxlength="2" placeholder="State" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Zip Code</label>
+                        <input type="text" class="form-control" @bind="Driver.Address.ZipCode" placeholder="Zip" />
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" value="@DriverPhoneDisplay" 
+                               @onchange="OnDriverPhoneChanged" placeholder="(555) 000-0000" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="Driver.Email" placeholder="Email Address" />
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label">FEIN/SS# <small class="text-muted">(Optional)</small></label>
+                        <input type="text" class="form-control" @bind="Driver.FeinSsNumber" placeholder="FEIN or Social Security # (Optional)" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Driver information will be pulled from policy records.
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Driver Details Summary (shown after driver is saved) -->
+    @if (DriverSaved && !string.IsNullOrEmpty(Driver.Name))
+    {
+        <div class="card mb-4 border-success">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-check-circle me-2"></i>Driver Information Saved</h6>
+                <button type="button" class="btn btn-sm btn-light" @onclick="EditDriverInfo" title="Edit Driver Information">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Driver Name</small>
+                        <strong>@Driver.Name</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Date of Birth</small>
+                        <strong>@(Driver.DateOfBirth != default ? Driver.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Listed on Policy</small>
+                        <span class="badge @(Driver.IsListed ? "bg-success" : "bg-warning text-dark")">
+                            @(Driver.IsListed ? "Yes" : "No")
+                        </span>
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">License Number</small>
+                        <strong>@(string.IsNullOrEmpty(Driver.LicenseNumber) ? "-" : Driver.LicenseNumber)</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">License State</small>
+                        <strong>@(string.IsNullOrEmpty(Driver.LicenseState) ? "-" : Driver.LicenseState)</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Phone</small>
+                        <strong>@(string.IsNullOrEmpty(Driver.PhoneNumber) ? "-" : FormatPhoneNumber(Driver.PhoneNumber))</strong>
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <small class="text-muted d-block">Address</small>
+                        <strong>
+                            @if (Driver.Address != null && Driver.Address.HasAnyAddress)
+                            {
+                                @Driver.Address.GetFormattedAddress()
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Email</small>
+                        <strong>@(string.IsNullOrEmpty(Driver.Email) ? "-" : Driver.Email)</strong>
+                    </div>
+                </div>
+
+                @* Driver Injury Summary *@
+                @if (IsDriverInjured && DriverInjury != null)
+                {
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="text-danger mb-3"><i class="bi bi-bandaid me-2"></i>Injury Information</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Injury Type</small>
+                                <strong>@(string.IsNullOrEmpty(DriverInjury.InjuryType) ? "-" : DriverInjury.InjuryType)</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Severity</small>
+                                <strong>@DriverInjury.GetSeverityDescription()</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Fatality</small>
+                                <span class="badge @(DriverInjury.IsFatality ? "bg-dark" : "bg-secondary")">
+                                    @(DriverInjury.IsFatality ? "Yes" : "No")
+                                </span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Hospitalized</small>
+                                <span class="badge @(DriverInjury.WasTakenToHospital ? "bg-danger" : "bg-secondary")">
+                                    @(DriverInjury.WasTakenToHospital ? "Yes" : "No")
+                                </span>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(DriverInjury.InjuryDescription))
+                        {
+                            <div class="row g-3 mb-3">
+                                <div class="col-12">
+                                    <small class="text-muted d-block">Injury Description</small>
+                                    <div class="border rounded p-2 bg-light">@DriverInjury.InjuryDescription</div>
+                                </div>
+                            </div>
+                        }
+                        @if (DriverInjury.WasTakenToHospital)
+                        {
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Hospital Name</small>
+                                    <strong>@(string.IsNullOrEmpty(DriverInjury.HospitalName) ? "-" : DriverInjury.HospitalName)</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Hospital Address</small>
+                                    <strong>@(string.IsNullOrEmpty(DriverInjury.GetHospitalAddress()) ? "-" : DriverInjury.GetHospitalAddress())</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Treating Physician</small>
+                                    <strong>@(string.IsNullOrEmpty(DriverInjury.TreatingPhysician) ? "-" : DriverInjury.TreatingPhysician)</strong>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Driver Attorney Summary *@
+                @if (HasAttorney && DriverAttorney != null && !string.IsNullOrEmpty(DriverAttorney.Name))
+                {
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="text-primary mb-3"><i class="bi bi-briefcase me-2"></i>Attorney Representation</h6>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Attorney Name</small>
+                                <strong>@DriverAttorney.Name</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Firm Name</small>
+                                <strong>@(string.IsNullOrEmpty(DriverAttorney.FirmName) ? "-" : DriverAttorney.FirmName)</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Phone</small>
+                                <strong>@(string.IsNullOrEmpty(DriverAttorney.PhoneNumber) ? "-" : FormatPhoneNumber(DriverAttorney.PhoneNumber))</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Email</small>
+                                <strong>@(string.IsNullOrEmpty(DriverAttorney.Email) ? "-" : DriverAttorney.Email)</strong>
+                            </div>
+                        </div>
+                        @if (DriverAttorney.Address != null && DriverAttorney.Address.HasAnyAddress)
+                        {
+                            <div class="row g-3 mt-2">
+                                <div class="col-12">
+                                    <small class="text-muted d-block">Attorney Address</small>
+                                    <strong>@DriverAttorney.Address.GetFormattedAddress()</strong>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Driver Injury Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">Driver Injury Status</h6>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Was the driver injured?</label>
+                <div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="driverInjured" id="driverInjuredYes" 
+                               value="true" checked="@IsDriverInjured"
+                               @onchange="@((ChangeEventArgs e) => SetDriverInjured(true))" />
+                        <label class="form-check-label" for="driverInjuredYes">Yes</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="driverInjured" id="driverInjuredNo" 
+                               value="false" checked="@(!IsDriverInjured)"
+                               @onchange="@((ChangeEventArgs e) => SetDriverInjured(false))" />
+                        <label class="form-check-label" for="driverInjuredNo">No</label>
+                    </div>
+                </div>
+            </div>
+
+            @if (IsDriverInjured)
+            {
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-circle"></i> A feature/sub-claim will be created for this injury after you save.
+                </div>
+
+                <InjuryTemplateUnified @bind-InjuryInfo="DriverInjury" />
+
+                <!-- Attorney Representation Section -->
+                <div class="border-top pt-3 mt-3">
+                    <h6 class="mb-3">Attorney Representation <small class="text-muted">(Optional)</small></h6>
+                    <div class="mb-3">
+                        <label class="form-label">Is the driver represented by an attorney?</label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="hasAttorney" id="hasAttorneyYes" 
+                                       value="true" checked="@HasAttorney"
+                                       @onchange="@((ChangeEventArgs e) => SetHasAttorney(true))" />
+                                <label class="form-check-label" for="hasAttorneyYes">Yes</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="hasAttorney" id="hasAttorneyNo" 
+                                       value="false" checked="@(!HasAttorney)"
+                                       @onchange="@((ChangeEventArgs e) => SetHasAttorney(false))" />
+                                <label class="form-check-label" for="hasAttorneyNo">No</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (HasAttorney)
+                    {
+                        <div class="d-flex justify-content-end mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="SearchDriverAttorney">
+                                <i class="bi bi-search me-1"></i>Search from Vendor Master
+                            </button>
+                        </div>
+
+                        @if (SelectedDriverAttorneyVendor != null)
+                        {
+                            <div class="alert alert-success mb-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <strong>Attorney loaded from Vendor Master:</strong> @SelectedDriverAttorneyVendor.Name
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSelectedDriverAttorney">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Attorney Name</label>
+                                <input type="text" class="form-control" @bind="DriverAttorney.Name" 
+                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Firm Name</label>
+                                <input type="text" class="form-control" @bind="DriverAttorney.FirmName" 
+                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" value="@AttorneyPhoneDisplay" 
+                                       @onchange="OnAttorneyPhoneChanged" placeholder="(555) 000-0000"
+                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" @bind="DriverAttorney.Email" 
+                                       disabled="@(SelectedDriverAttorneyVendor != null)" />
+                            </div>
+                        </div>
+                        
+                        <!-- Attorney Address -->
+                        <div class="border-top pt-3 mt-3">
+                            <h6 class="mb-3">Attorney Address</h6>
+                            @if (SelectedDriverAttorneyVendor != null)
+                            {
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Street Address</label>
+                                        <input type="text" class="form-control" value="@DriverAttorney.Address.StreetAddress" disabled />
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Address Line 2</label>
+                                        <input type="text" class="form-control" value="@DriverAttorney.Address.AddressLine2" disabled />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">City</label>
+                                        <input type="text" class="form-control" value="@DriverAttorney.Address.City" disabled />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">State</label>
+                                        <input type="text" class="form-control" value="@DriverAttorney.Address.State" disabled />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Zip Code</label>
+                                        <input type="text" class="form-control" value="@DriverAttorney.Address.ZipCode" disabled />
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Street Address</label>
+                                        <input type="text" class="form-control" @bind="DriverAttorney.Address.StreetAddress" placeholder="Street Address" />
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Address Line 2</label>
+                                        <input type="text" class="form-control" @bind="DriverAttorney.Address.AddressLine2" placeholder="Apt, Suite, etc." />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">City</label>
+                                        <input type="text" class="form-control" @bind="DriverAttorney.Address.City" placeholder="City" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">State</label>
+                                        <input type="text" class="form-control" @bind="DriverAttorney.Address.State" maxlength="2" placeholder="State" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Zip Code</label>
+                                        <input type="text" class="form-control" @bind="DriverAttorney.Address.ZipCode" placeholder="Zip" />
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Save Driver Button -->
+            <div class="mt-4 pt-3 border-top">
+                @if (IsDriverInjured)
+                {
+                    <button type="button" class="btn btn-primary btn-lg w-100" 
+                            @onclick="SaveDriverAndCreateFeature"
+                            disabled="@(!CanSaveDriver())">
+                        <i class="bi bi-check-circle"></i> Save Driver & Create Feature
+                    </button>
+                    <small class="text-muted d-block mt-2">This will save the driver information and open the feature creation dialog</small>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-success btn-lg w-100" 
+                            @onclick="SaveDriverWithoutInjury"
+                            disabled="@(!CanSaveDriverWithoutInjury())">
+                        <i class="bi bi-check-circle"></i> Save Driver Information
+                    </button>
+                    <small class="text-muted d-block mt-2">Driver is not injured - save and continue to add passengers or proceed to next step</small>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Driver Features/Sub-Claims Grid -->
+    @if (DriverSubClaims.Count > 0)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-layers"></i> Created Features/Sub-Claims</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Feature</th>
+                                <th>Coverage/Limits</th>
+                                <th>Claimant</th>
+                                <th>Expense Reserve</th>
+                                <th>Indemnity Reserve</th>
+                                <th>Assigned Adjuster</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var feature in DriverSubClaims)
+                            {
+                                <tr>
+                                    <td><strong>@feature.FeatureNumber</strong></td>
+                                    <td>@feature.Coverage - @feature.CoverageLimits</td>
+                                    <td>@feature.ClaimantName</td>
+                                    <td>@feature.ExpenseReserve.ToString("C")</td>
+                                    <td>@feature.IndemnityReserve.ToString("C")</td>
+                                    <td>@feature.AssignedAdjusterName</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                @onclick="@(() => EditFeature(feature))" title="Edit Feature">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                @onclick="@(() => RemoveFeature(feature.Id))" title="Delete Feature">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Passengers Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Passengers</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowAddPassengerModal">
+                    <i class="bi bi-plus-circle"></i> Add Passenger
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (Passengers.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Injured</th>
+                                <th>Attorney</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var passenger in Passengers)
+                            {
+                                <tr>
+                                    <td>@passenger.Name</td>
+                                    <td>
+                                        @if (passenger.WasInjured)
+                                        {
+                                            <span class="badge bg-danger">Yes</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">No</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (passenger.HasAttorney)
+                                        {
+                                            <span class="badge bg-primary">Yes</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="@(() => AddFeatureForPassenger(passenger))" title="Add Feature">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info me-1" @onclick="@(() => EditPassenger(passenger))" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => RemovePassenger(passenger.Name))" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mb-0">No passengers added. Click the button above to add passenger information.</p>
+            }
+        </div>
+    </div>
+</SectionCard>
+
+<PassengerModal @ref="passengerModal" OnPassengerAdded="AddPassengerAndCreateFeature" OnCancelled="@(() => {})" 
+                NatureOfInjuries="NatureOfInjuries" />
+<FeatureCreationModal @ref="featureCreationModal" 
+                     OnFeatureCreated="OnFeatureCreated" 
+                     OnCancelled="OnFeatureCreationCancelled"
+                     OnCreationComplete="OnFeatureCreationComplete" />
+<AttorneySearchModal @ref="driverAttorneySearchModal" 
+                     ModalId="driverAttorneySearchModal"
+                     OnAttorneySelected="OnDriverAttorneySelected" 
+                     OnManualEntry="OnDriverAttorneyManualEntry"
+                     OnCancelled="@(() => {})" />
+
+@code {
+    [Inject]
+    private ILookupService LookupService { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public DriverInfo? InitialDriver { get; set; }
+
+    [Parameter]
+    public Injury? InitialDriverInjury { get; set; }
+
+    [Parameter]
+    public AttorneyInfo? InitialDriverAttorney { get; set; }
+
+    [Parameter]
+    public List<InsuredPassenger>? InitialPassengers { get; set; }
+
+    private PassengerModal? passengerModal;
+    private FeatureCreationModal? featureCreationModal;
+    private AttorneySearchModal? driverAttorneySearchModal;
+    private string CurrentClaimantName = string.Empty;
+    private string CurrentClaimType = string.Empty;
+    private bool IsCreatingPassengerFeature = false;
+    private InsuredPassenger? EditingPassenger = null;
+
+    private string DriverType = "insured";
+    private DriverInfo Driver = new();
+    private bool IsDriverInjured = false;
+    private Injury DriverInjury = new();
+    private bool HasAttorney = false;
+    private AttorneyInfo DriverAttorney = new();
+    private List<InsuredPassenger> Passengers = [];
+    private List<SubClaim> DriverSubClaims = [];
+    private List<string> NatureOfInjuries = [];
+    private int FeatureCounter = 0;
+    private bool DriverSaved = false;
+    private Vendor? SelectedDriverAttorneyVendor;
+    
+    private string DriverPhoneDisplay = "";
+    private string AttorneyPhoneDisplay = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        NatureOfInjuries = await LookupService.GetNatureOfInjuriesAsync();
+        
+        if (InitialDriver != null && !string.IsNullOrEmpty(InitialDriver.Name))
+        {
+            Driver = InitialDriver;
+            DriverType = InitialDriver.IsListed ? "listed" : "unlisted";
+            if (InitialDriver.Name == "Insured") DriverType = "insured";
+            DriverPhoneDisplay = FormatPhoneNumber(Driver.PhoneNumber);
+            DriverSaved = true;
+        }
+        else
+        {
+            if (Driver.DateOfBirth == default)
+                Driver.DateOfBirth = DateTime.Now;
+        }
+        
+        if (InitialDriverInjury != null)
+        {
+            DriverInjury = InitialDriverInjury;
+            IsDriverInjured = true;
+        }
+        
+        if (InitialDriverAttorney != null && !string.IsNullOrEmpty(InitialDriverAttorney.Name))
+        {
+            DriverAttorney = InitialDriverAttorney;
+            AttorneyPhoneDisplay = FormatPhoneNumber(DriverAttorney.PhoneNumber);
+            HasAttorney = true;
+        }
+        
+        if (InitialPassengers != null && InitialPassengers.Count > 0)
+        {
+            Passengers = InitialPassengers;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (InitialDriver != null && Driver.Name != InitialDriver.Name && !string.IsNullOrEmpty(InitialDriver.Name))
+        {
+            Driver = InitialDriver;
+            DriverSaved = true;
+        }
+        
+        if (InitialPassengers != null && InitialPassengers.Count > 0 && Passengers.Count == 0)
+        {
+            Passengers = InitialPassengers;
+        }
+    }
+
+    private bool IsNextDisabled => 
+        (DriverType == "unlisted" && (string.IsNullOrEmpty(Driver.Name) || !DriverSaved)) ||
+        (DriverType != "unlisted" && !DriverSaved);
+
+    public async Task<bool> ValidateAsync() => !IsNextDisabled;
+
+    public DriverInfo GetDriver() => Driver;
+
+    public Injury? GetDriverInjury() => IsDriverInjured ? DriverInjury : null;
+
+    public AttorneyInfo? GetDriverAttorney() => HasAttorney ? DriverAttorney : null;
+
+    public List<InsuredPassenger> GetPassengers() => Passengers;
+
+    public List<SubClaim> GetDriverSubClaims() => DriverSubClaims;
+
+    public List<SubClaim> GetPassengerSubClaims() => DriverSubClaims.Where(f => f.ClaimantName == "InsuredPassenger").ToList();
+
+    private void SetDriverType(string? type)
+    {
+        DriverType = type ?? "insured";
+        if (DriverType == "insured")
+        {
+            Driver.Name = "Insured";
+            Driver.IsListed = true;
+        }
+        else
+        {
+            Driver.Name = string.Empty;
+            Driver.IsListed = DriverType == "listed";
+        }
+        DriverSaved = false;
+    }
+
+    private void EditDriverInfo()
+    {
+        // Set DriverSaved to false to show edit form again
+        if (Driver.Name != "Insured")
+        {
+            DriverType = Driver.IsListed ? "listed" : "unlisted";
+        }
+        DriverSaved = false;
+    }
+
+    private void SetDriverInjured(bool injured)
+    {
+        IsDriverInjured = injured;
+        if (!injured)
+        {
+            DriverInjury = new();
+            DriverSubClaims.Clear();
+            FeatureCounter = 0;
+            DriverSaved = false;
+        }
+    }
+
+    private void SetHasAttorney(bool hasAttorney)
+    {
+        HasAttorney = hasAttorney;
+        if (!hasAttorney)
+        {
+            DriverAttorney = new();
+            DriverAttorney.Address = new();
+            SelectedDriverAttorneyVendor = null;
+            AttorneyPhoneDisplay = "";
+        }
+        else if (DriverAttorney.Address == null)
+        {
+            DriverAttorney.Address = new();
+        }
+    }
+
+    private async Task SearchDriverAttorney()
+    {
+        if (driverAttorneySearchModal != null)
+        {
+            await driverAttorneySearchModal.ShowAsync();
+        }
+    }
+
+    private void OnDriverAttorneySelected(AttorneyInfo attorneyInfo)
+    {
+        DriverAttorney = attorneyInfo;
+        SelectedDriverAttorneyVendor = new Vendor { Name = attorneyInfo.FirmName ?? attorneyInfo.Name };
+        AttorneyPhoneDisplay = FormatPhoneNumber(DriverAttorney.PhoneNumber);
+    }
+
+    private void OnDriverAttorneyManualEntry()
+    {
+        SelectedDriverAttorneyVendor = null;
+        DriverAttorney = new() { Address = new() };
+        AttorneyPhoneDisplay = "";
+    }
+
+    private void ClearSelectedDriverAttorney()
+    {
+        SelectedDriverAttorneyVendor = null;
+        DriverAttorney = new() { Address = new() };
+        AttorneyPhoneDisplay = "";
+    }
+
+    private bool CanSaveDriver()
+    {
+        if (DriverType == "insured" || DriverType == "listed")
+            return true;
+        return !string.IsNullOrEmpty(Driver.Name);
+    }
+
+    private bool CanSaveDriverWithoutInjury()
+    {
+        if (DriverType == "insured" || DriverType == "listed")
+            return true;
+        return !string.IsNullOrEmpty(Driver.Name);
+    }
+
+    private async Task SaveDriverAndCreateFeature()
+    {
+        if (DriverType == "insured")
+        {
+            Driver.Name = "Insured";
+            Driver.IsListed = true;
+        }
+        
+        CurrentClaimantName = Driver.Name;
+        CurrentClaimType = "InsuredDriver";
+        IsCreatingPassengerFeature = false;
+        
+        if (featureCreationModal != null)
+        {
+            await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+        }
+    }
+
+    private void SaveDriverWithoutInjury()
+    {
+        if (DriverType == "insured")
+        {
+            Driver.Name = "Insured";
+            Driver.IsListed = true;
+        }
+        DriverSaved = true;
+    }
+
+    private void OnFeatureCreated(SubClaim feature)
+    {
+        feature.Id = ++FeatureCounter;
+        feature.FeatureNumber = FeatureCounter;
+        DriverSubClaims.Add(feature);
+    }
+
+    private void OnFeatureCreationCancelled()
+    {
+        // Reset if cancelled
+    }
+
+    private void OnFeatureCreationComplete()
+    {
+        DriverSaved = true;
+        StateHasChanged();
+    }
+
+    private void EditFeature(SubClaim feature)
+    {
+        // Edit feature logic
+    }
+
+    private void RemoveFeature(int featureId)
+    {
+        DriverSubClaims.RemoveAll(f => f.Id == featureId);
+    }
+
+    private async Task ShowAddPassengerModal()
+    {
+        EditingPassenger = null;
+        if (passengerModal != null)
+        {
+            await passengerModal.ShowAsync();
+        }
+    }
+
+    private async Task AddPassengerAndCreateFeature(InsuredPassenger passenger)
+    {
+        if (EditingPassenger != null)
+        {
+            Passengers.Remove(EditingPassenger);
+        }
+        Passengers.Add(passenger);
+        EditingPassenger = null;
+        
+        // If passenger was injured, automatically open feature creation modal
+        if (passenger.WasInjured)
+        {
+            CurrentClaimantName = passenger.Name;
+            CurrentClaimType = "InsuredPassenger";
+            IsCreatingPassengerFeature = true;
+            
+            // Small delay to let PassengerModal close first
+            await Task.Delay(100);
+            
+            if (featureCreationModal != null)
+            {
+                await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+            }
+        }
+    }
+
+    private async Task EditPassenger(InsuredPassenger passenger)
+    {
+        EditingPassenger = passenger;
+        if (passengerModal != null)
+        {
+            await passengerModal.ShowAsync(passenger);
+        }
+    }
+
+    private void RemovePassenger(string name)
+    {
+        Passengers.RemoveAll(p => p.Name == name);
+    }
+
+    private async Task AddFeatureForPassenger(InsuredPassenger passenger)
+    {
+        CurrentClaimantName = passenger.Name;
+        CurrentClaimType = "InsuredPassenger";
+        IsCreatingPassengerFeature = true;
+        
+        if (featureCreationModal != null)
+        {
+            await featureCreationModal.ShowAsync(CurrentClaimantName, CurrentClaimType);
+        }
+    }
+
+    private void OnDriverPhoneChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        Driver.PhoneNumber = new string(value.Where(char.IsDigit).ToArray());
+        DriverPhoneDisplay = FormatPhoneNumber(Driver.PhoneNumber);
+    }
+
+    private void OnAttorneyPhoneChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        DriverAttorney.PhoneNumber = new string(value.Where(char.IsDigit).ToArray());
+        AttorneyPhoneDisplay = FormatPhoneNumber(DriverAttorney.PhoneNumber);
+    }
+
+    private string FormatPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrEmpty(phone)) return "";
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length == 10)
+            return $"({digits[..3]}) {digits.Substring(3, 3)}-{digits[6..]}";
+        return phone;
+    }
+}

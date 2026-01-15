@@ -1,0 +1,779 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@using ClaimsPortal.Components.Shared
+@rendermode InteractiveServer
+
+<SectionCard Title="Loss Details & Policy Verification" 
+             SubTitle="Capture the accident details and verify policy coverage before proceeding"
+             StepNumber="1"
+             OnNext="OnNext"
+             ShowPreviousButton="false"
+             IsNextDisabled="@IsNextDisabled">
+
+    <EditForm Model="LossDetails" OnValidSubmit="OnNext">
+        <DataAnnotationsValidator />
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Date of Loss *</label>
+                <input type="date" class="form-control" 
+                       value="@LossDetails.DateOfLoss.ToString("yyyy-MM-dd")"
+                       @onchange="OnDateOfLossChanged"
+                       max="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                <small class="text-danger">Cannot be greater than today's date</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Time of Loss *</label>
+                <input type="time" class="form-control" @bind="LossDetails.TimeOfLoss" />
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Report Date *</label>
+                <input type="date" class="form-control" @bind="LossDetails.ReportDate" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Report Time *</label>
+                <input type="time" class="form-control" @bind="LossDetails.ReportTime" />
+            </div>
+        </div>
+
+        <!-- POLICY VERIFICATION SECTION - Right after Report Date -->
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Policy Verification</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Policy Number *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" @bind="PolicyNumber" @bind:event="oninput" 
+                                   placeholder="Enter Policy Number..." />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="OpenPolicySearch" title="Advanced Search">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary w-100" @onclick="SearchPolicy" 
+                                disabled="@(string.IsNullOrEmpty(PolicyNumber) || IsSearching)">
+                            @if (IsSearching)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-search me-1"></i> Search
+                        </button>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-primary w-100" @onclick="OpenPolicySearch">
+                            <i class="bi bi-sliders me-1"></i> Advanced
+                        </button>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        @if (!PolicyVerified && HasSearched)
+                        {
+                            <button type="button" class="btn btn-warning w-100" @onclick="SetupUnverifiedClaim">
+                                <i class="bi bi-exclamation-triangle me-1"></i> CIQ Claim
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (IsSearching)
+                {
+                    <div class="alert alert-info py-2">
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        Searching for policy...
+                    </div>
+                }
+
+                @if (PolicyInfo != null && PolicyVerified)
+                {
+                    <div class="alert @GetPolicyCoverageAlertClass() mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="w-100">
+                                <h6 class="mb-2">
+                                    <i class="bi @GetPolicyCoverageIcon() me-2"></i>@GetPolicyCoverageMessage()
+                                </h6>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Policy Number</small>
+                                        <strong>@PolicyInfo.PolicyNumber</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Renewal Number</small>
+                                        <strong>@PolicyInfo.RenewalNumber</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Effective Date</small>
+                                        <strong>@PolicyInfo.EffectiveDate.ToString("MM/dd/yyyy")</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Status</small>
+                                        <span class="badge @GetStatusBadgeClass(PolicyInfo.Status)">@PolicyInfo.Status</span>
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Expiration Date</small>
+                                        <strong>@PolicyInfo.ExpiryDate.ToString("MM/dd/yyyy")</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Cancel Date</small>
+                                        <strong class="@(PolicyInfo.CancelDate.HasValue ? "text-danger" : "")">@(PolicyInfo.CancelDate?.ToString("MM/dd/yyyy") ?? "N/A")</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Insured Name</small>
+                                        <strong>@PolicyInfo.InsuredName</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Phone</small>
+                                        <strong>@FormatPhoneNumber(PolicyInfo.PhoneNumber)</strong>
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(PolicyCoverageWarning))
+                                {
+                                    <div class="mt-3 pt-2 border-top">
+                                        <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>@PolicyCoverageWarning</small>
+                                    </div>
+                                }
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @onclick="ClearPolicy">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+                else if (IsUnverifiedClaim)
+                {
+                    <div class="alert alert-warning">
+                        <h6 class="mb-2">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Unverified / CIQ Claim
+                        </h6>
+                        <p class="mb-0">This claim will be setup without policy verification. Policy information is optional.</p>
+                    </div>
+                }
+                else if (!IsSearching && HasSearched && !PolicyVerified)
+                {
+                    <div class="alert alert-danger">
+                        <h6 class="mb-2">
+                            <i class="bi bi-x-circle-fill me-2"></i>Policy Not Found
+                        </h6>
+                        <p class="mb-2">The policy number was not found in the system. You have two options:</p>
+                        <ul class="mb-0">
+                            <li>Check the policy number and try again</li>
+                            <li>Click <strong>"Setup CIQ Claim"</strong> to proceed without policy verification</li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Location of Loss *</label>
+            <input type="text" class="form-control" @bind="LossDetails.Location" 
+                   placeholder="Street, City, State, ZIP" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Secondary Accident Location (Optional)</label>
+            <input type="text" class="form-control" @bind="LossDetails.Location2" 
+                   placeholder="If accident occurred at intersection of 2 streets, enter the second street here" />
+            <small class="text-muted">Enter if the accident occurred at an intersection (e.g., Second Street)</small>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Cause of Loss *</label>
+                <select class="form-select" @bind="LossDetails.CauseOfLoss">
+                    <option value="">-- Select --</option>
+                    <option value="Snow">Snow</option>
+                    <option value="Wet road">Wet Road</option>
+                    <option value="Red Light">Red Light</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Weather Condition *</label>
+                <select class="form-select" @bind="LossDetails.WeatherCondition">
+                    <option value="">-- Select --</option>
+                    <option value="Rain">Rain</option>
+                    <option value="Dense Fog">Dense Fog</option>
+                    <option value="Slippery Road">Slippery Road</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Loss Description *</label>
+            <textarea class="form-control" rows="4" @bind="LossDetails.LossDescription" 
+                      placeholder="Enter detailed description of the loss..."></textarea>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <label class="form-label">Reported By *</label>
+                <select class="form-select" @bind="LossDetails.ReportedBy">
+                    <option value="">-- Select --</option>
+                    <option value="Insured">Insured</option>
+                    <option value="Agent">Agent</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Reporting Method *</label>
+                <select class="form-select" @bind="LossDetails.ReportingMethod">
+                    <option value="">-- Select --</option>
+                    <option value="Phone">Phone</option>
+                    <option value="Email">Email</option>
+                    <option value="In Person">In Person</option>
+                    <option value="Online">Online</option>
+                </select>
+            </div>
+        </div>
+
+        @if (LossDetails.ReportedBy == "Other")
+        {
+            <div class="card mb-4 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title mb-3">Reported By Details</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByName" placeholder="Full Name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-control" @bind="LossDetails.ReportedByPhone" placeholder="(555) 000-0000" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="LossDetails.ReportedByEmail" placeholder="email@example.com" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">FEIN/SS#</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByFeinSsNumber" placeholder="FEIN or Social Security #" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Street Address</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByAddress.StreetAddress" placeholder="Street Address" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Address Line 2</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByAddress.AddressLine2" placeholder="Apt, Suite, etc." />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByAddress.City" placeholder="City" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByAddress.State" maxlength="2" placeholder="State" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Zip Code</label>
+                            <input type="text" class="form-control" @bind="LossDetails.ReportedByAddress.ZipCode" placeholder="Zip" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Witnesses -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Witnesses</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowWitnessModal">
+                        <i class="bi bi-plus-circle"></i> Add Witness
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (LossDetails.Witnesses.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var witness in LossDetails.Witnesses)
+                                {
+                                    <tr>
+                                        <td>@witness.Name</td>
+                                        <td>@witness.Email</td>
+                                        <td>@witness.PhoneNumber</td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                                    @onclick="@(() => EditWitness(witness))">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="@(() => RemoveWitness(witness.Id))">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No witnesses added yet.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Authorities Notified -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Authorities Notified</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowAuthorityModal">
+                        <i class="bi bi-plus-circle"></i> Add Authority
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (LossDetails.AuthoritiesNotified.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Authority Type</th>
+                                    <th>Name</th>
+                                    <th>Address</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var authority in LossDetails.AuthoritiesNotified)
+                                {
+                                    <tr>
+                                        <td>@authority.AuthorityName</td>
+                                        <td>@authority.Name</td>
+                                        <td>
+                                            @if (authority.Address != null && authority.Address.HasAnyAddress)
+                                            {
+                                                @authority.Address.GetFormattedAddress()
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                                    @onclick="@(() => EditAuthority(authority))">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="@(() => RemoveAuthority(authority.Id))">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No authorities notified yet.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Incident Questions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">Incident Questions</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="otherVehicles" 
+                               @bind="LossDetails.HasOtherVehiclesInvolved" />
+                        <label class="form-check-label" for="otherVehicles">
+                            Were there any other vehicles involved in the accident?
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="injuries" 
+                               @bind="LossDetails.HasInjuries" />
+                        <label class="form-check-label" for="injuries">
+                            Was anyone injured in the accident?
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="propertyDamage" 
+                               @bind="LossDetails.HasPropertyDamage" />
+                        <label class="form-check-label" for="propertyDamage">
+                            Was there any property damage?
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</SectionCard>
+
+<WitnessModal @ref="witnessModal" OnWitnessAdded="AddOrUpdateWitness" OnCancelled="@(() => {})" />
+<AuthorityModal @ref="authorityModal" OnAuthorityAdded="AddOrUpdateAuthority" OnCancelled="@(() => {})" />
+<PolicySearchModal @ref="policySearchModal" OnPolicySelected="SelectPolicyFromSearch" OnCancelled="@(() => {})" />
+
+@code {
+    [Inject]
+    private ILookupService LookupService { get; set; } = null!;
+
+    [Inject]
+    private IPolicyService PolicyService { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public ClaimLossDetails? InitialData { get; set; }
+
+    [Parameter]
+    public Policy? InitialPolicyInfo { get; set; }
+
+    private ClaimLossDetails LossDetails = new();
+    private WitnessModal? witnessModal;
+    private AuthorityModal? authorityModal;
+    private PolicySearchModal? policySearchModal;
+
+    // Policy verification state
+    private string PolicyNumber = "";
+    private bool IsSearching = false;
+    private bool HasSearched = false;
+    private bool PolicyVerified = false;
+    private bool IsUnverifiedClaim = false;
+    private Policy? PolicyInfo;
+    private string? PolicyCoverageWarning;
+
+    protected override void OnInitialized()
+    {
+        // Load initial data if provided (for returning to this step)
+        if (InitialData != null)
+        {
+            LossDetails = InitialData;
+        }
+        else
+        {
+            // Set default dates to today and times to 12:00 AM for new entries
+            if (LossDetails.DateOfLoss == default)
+                LossDetails.DateOfLoss = DateTime.Today;
+            if (LossDetails.TimeOfLoss == default)
+                LossDetails.TimeOfLoss = new TimeOnly(0, 0); // 12:00 AM
+            if (LossDetails.ReportDate == default)
+                LossDetails.ReportDate = DateTime.Today;
+            if (LossDetails.ReportTime == default)
+                LossDetails.ReportTime = new TimeOnly(0, 0); // 12:00 AM
+        }
+
+        // Load initial policy if provided (from draft or previous step)
+        if (InitialPolicyInfo != null && !string.IsNullOrEmpty(InitialPolicyInfo.PolicyNumber))
+        {
+            PolicyInfo = InitialPolicyInfo;
+            PolicyNumber = InitialPolicyInfo.PolicyNumber;
+            
+            // Policy is verified if we have the policy number and insured name (from draft or search)
+            // This allows drafts with policy data to show as verified
+            PolicyVerified = !string.IsNullOrEmpty(InitialPolicyInfo.InsuredName) || 
+                             !string.IsNullOrEmpty(InitialPolicyInfo.PolicyNumber);
+            HasSearched = true;
+            
+            if (PolicyVerified)
+            {
+                ValidatePolicyCoverage();
+            }
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Update when InitialData changes
+        if (InitialData != null && InitialData != LossDetails)
+        {
+            LossDetails = InitialData;
+        }
+        
+        // Re-check policy info when parameters change (e.g., navigating back to this step)
+        if (InitialPolicyInfo != null && !string.IsNullOrEmpty(InitialPolicyInfo.PolicyNumber) && !PolicyVerified)
+        {
+            PolicyInfo = InitialPolicyInfo;
+            PolicyNumber = InitialPolicyInfo.PolicyNumber;
+            PolicyVerified = !string.IsNullOrEmpty(InitialPolicyInfo.InsuredName) || 
+                             !string.IsNullOrEmpty(InitialPolicyInfo.PolicyNumber);
+            HasSearched = true;
+            
+            if (PolicyVerified)
+            {
+                ValidatePolicyCoverage();
+            }
+        }
+    }
+
+    // Next button is disabled if:
+    // - Basic loss details are incomplete
+    // - Policy is not verified AND not an unverified claim
+    private bool IsNextDisabled => 
+        LossDetails.DateOfLoss == default ||
+        LossDetails.TimeOfLoss == default ||
+        string.IsNullOrEmpty(LossDetails.Location) ||
+        (!PolicyVerified && !IsUnverifiedClaim) ||  // Must verify policy OR setup CIQ claim
+        (LossDetails.ReportedBy == "Other" && 
+         (string.IsNullOrEmpty(LossDetails.ReportedByName) || 
+          string.IsNullOrEmpty(LossDetails.ReportedByPhone) ||
+          string.IsNullOrEmpty(LossDetails.ReportedByEmail)));
+
+    public async Task<bool> ValidateAsync()
+    {
+        return !IsNextDisabled;
+    }
+
+    public ClaimLossDetails GetLossDetails() => LossDetails;
+
+    public Policy? GetPolicyInfo() => PolicyInfo;
+
+    public bool IsCiqClaim() => IsUnverifiedClaim;
+
+    #region Policy Search Methods
+
+    private async Task SearchPolicy()
+    {
+        if (string.IsNullOrEmpty(PolicyNumber))
+            return;
+
+        IsSearching = true;
+        HasSearched = true;
+        PolicyVerified = false;
+        IsUnverifiedClaim = false;
+        PolicyCoverageWarning = null;
+
+        try
+        {
+            PolicyInfo = await PolicyService.GetPolicyAsync(PolicyNumber);
+            if (PolicyInfo != null)
+            {
+                PolicyVerified = true;
+                ValidatePolicyCoverage();
+            }
+        }
+        finally
+        {
+            IsSearching = false;
+        }
+    }
+
+    private async Task OpenPolicySearch()
+    {
+        if (policySearchModal != null)
+            await policySearchModal.ShowAsync();
+    }
+
+    private async Task SelectPolicyFromSearch(string policyNumber)
+    {
+        PolicyNumber = policyNumber;
+        await SearchPolicy();
+    }
+
+    private void SetupUnverifiedClaim()
+    {
+        IsUnverifiedClaim = true;
+        PolicyVerified = false;
+        PolicyInfo = null;
+        PolicyCoverageWarning = null;
+    }
+
+    private void ClearPolicy()
+    {
+        PolicyNumber = "";
+        PolicyInfo = null;
+        PolicyVerified = false;
+        IsUnverifiedClaim = false;
+        HasSearched = false;
+        PolicyCoverageWarning = null;
+    }
+
+    private void ValidatePolicyCoverage()
+    {
+        if (PolicyInfo == null || LossDetails.DateOfLoss == default)
+            return;
+
+        PolicyCoverageWarning = null;
+        var dateOfLoss = LossDetails.DateOfLoss.Date;
+
+        // Rule: If policy is cancelled, date of loss must be <= cancel date
+        if (PolicyInfo.Status == "Cancelled" && PolicyInfo.CancelDate.HasValue)
+        {
+            if (dateOfLoss > PolicyInfo.CancelDate.Value.Date)
+            {
+                PolicyCoverageWarning = $"Date of Loss ({dateOfLoss:MM/dd/yyyy}) is after the policy cancellation date ({PolicyInfo.CancelDate.Value:MM/dd/yyyy}). Coverage may not apply.";
+            }
+        }
+        // Rule: Date of loss must be within effective and expiration dates
+        else if (dateOfLoss < PolicyInfo.EffectiveDate.Date)
+        {
+            PolicyCoverageWarning = $"Date of Loss ({dateOfLoss:MM/dd/yyyy}) is before the policy effective date ({PolicyInfo.EffectiveDate:MM/dd/yyyy}). Coverage may not apply.";
+        }
+        else if (dateOfLoss > PolicyInfo.ExpiryDate.Date)
+        {
+            PolicyCoverageWarning = $"Date of Loss ({dateOfLoss:MM/dd/yyyy}) is after the policy expiration date ({PolicyInfo.ExpiryDate:MM/dd/yyyy}). Coverage may not apply.";
+        }
+    }
+
+    private string GetPolicyCoverageAlertClass()
+    {
+        if (!string.IsNullOrEmpty(PolicyCoverageWarning))
+            return "alert-warning";
+        return "alert-success";
+    }
+
+    private string GetPolicyCoverageIcon()
+    {
+        if (!string.IsNullOrEmpty(PolicyCoverageWarning))
+            return "bi-exclamation-triangle-fill";
+        return "bi-check-circle-fill";
+    }
+
+    private string GetPolicyCoverageMessage()
+    {
+        if (!string.IsNullOrEmpty(PolicyCoverageWarning))
+            return "Policy Found - Coverage Warning";
+        return "Policy Verified - Coverage Confirmed";
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Expired" => "bg-warning",
+        "Cancelled" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    #endregion
+
+    #region Witness Methods
+
+    private async Task ShowWitnessModal()
+    {
+        if (witnessModal != null)
+            await witnessModal.ShowAsync();
+    }
+
+    private async Task EditWitness(Witness witness)
+    {
+        if (witnessModal != null)
+            await witnessModal.ShowAsync(witness);
+    }
+
+    private void AddOrUpdateWitness(Witness witness)
+    {
+        var existing = LossDetails.Witnesses.FirstOrDefault(w => w.Id == witness.Id);
+        if (existing != null)
+        {
+            existing.Name = witness.Name;
+            existing.Email = witness.Email;
+            existing.PhoneNumber = witness.PhoneNumber;
+            existing.Address = witness.Address?.Copy() ?? new();
+            existing.FeinSsNumber = witness.FeinSsNumber;
+        }
+        else
+        {
+            LossDetails.Witnesses.Add(witness);
+        }
+    }
+
+    private void RemoveWitness(int id)
+    {
+        LossDetails.Witnesses.RemoveAll(w => w.Id == id);
+    }
+
+    #endregion
+
+    #region Authority Methods
+
+    private async Task ShowAuthorityModal()
+    {
+        if (authorityModal != null)
+            await authorityModal.ShowAsync();
+    }
+
+    private async Task EditAuthority(Authority authority)
+    {
+        if (authorityModal != null)
+            await authorityModal.ShowAsync(authority);
+    }
+
+    private void AddOrUpdateAuthority(Authority authority)
+    {
+        var existing = LossDetails.AuthoritiesNotified.FirstOrDefault(a => a.Id == authority.Id);
+        if (existing != null)
+        {
+            existing.AuthorityName = authority.AuthorityName;
+            existing.Name = authority.Name;
+            existing.Address = authority.Address?.Copy() ?? new();
+            existing.ReportNumber = authority.ReportNumber;
+        }
+        else
+        {
+            LossDetails.AuthoritiesNotified.Add(authority);
+        }
+    }
+
+    private void RemoveAuthority(int id)
+    {
+        LossDetails.AuthoritiesNotified.RemoveAll(a => a.Id == id);
+    }
+
+    #endregion
+
+    private void OnDateOfLossChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var date))
+        {
+            LossDetails.DateOfLoss = date;
+            ValidatePolicyCoverage();
+        }
+    }
+
+    private string FormatPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrEmpty(phone))
+            return "";
+        
+        // Remove all non-numeric characters
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        
+        if (digits.Length == 10)
+            return $"({digits[..3]}) {digits[3..6]}-{digits[6..]}";
+        else if (digits.Length == 11 && digits[0] == '1')
+            return $"+1 ({digits[1..4]}) {digits[4..7]}-{digits[7..]}";
+        
+        return phone; // Return original if not a standard format
+    }
+}

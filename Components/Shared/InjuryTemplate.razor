@@ -1,0 +1,81 @@
+@using ClaimsPortal.Models
+
+<div class="injury-template-container">
+    <div class="card">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">Injury Information</h6>
+        </div>
+        <div class="card-body">
+            <!-- Nature of Injury -->
+            <div class="mb-3">
+                <label class="form-label">Nature of Injury</label>
+                <select class="form-select" @bind="InjuryInfo.NatureOfInjury">
+                    <option value="">-- Select Injury Type --</option>
+                    @foreach (var injury in NatureOfInjuries)
+                    {
+                        <option value="@injury">@injury</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Date of First Medical Treatment & Injury Description -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Date of First Medical Treatment</label>
+                    <input type="date" class="form-control" @bind="InjuryInfo.FirstMedicalTreatmentDate" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Injury Description</label>
+                    <input type="text" class="form-control" @bind="InjuryInfo.InjuryDescription" 
+                           placeholder="Brief description of injury" />
+                </div>
+            </div>
+
+            <!-- Fatality & Hospital -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="injuryFatality_@InstanceId" 
+                               @bind="InjuryInfo.IsFatality" />
+                        <label class="form-check-label" for="injuryFatality_@InstanceId">Fatality</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="injuryHospital_@InstanceId" 
+                               @bind="InjuryInfo.WasTakenToHospital" />
+                        <label class="form-check-label" for="injuryHospital_@InstanceId">Taken to Hospital</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hospital Details (shown if hospitalized) -->
+            @if (InjuryInfo.WasTakenToHospital)
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Hospital Name</label>
+                        <input type="text" class="form-control" @bind="InjuryInfo.HospitalName" 
+                               placeholder="Hospital name" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Hospital Address</label>
+                        <input type="text" class="form-control" @bind="InjuryInfo.HospitalAddress" 
+                               placeholder="Hospital address" />
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public InjuryInfo InjuryInfo { get; set; } = new();
+
+    [Parameter]
+    public List<string> NatureOfInjuries { get; set; } = [];
+
+    [Parameter]
+    public string InstanceId { get; set; } = Guid.NewGuid().ToString().Substring(0, 8);
+}

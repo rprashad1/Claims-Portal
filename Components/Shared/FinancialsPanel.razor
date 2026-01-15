@@ -1,0 +1,104 @@
+@using ClaimsPortal.Models
+@rendermode InteractiveServer
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="mb-4">Financial Summary</h5>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <small class="text-muted d-block">Total Reserves</small>
+                        <h4 class="text-primary">@TotalReserves.ToString("C")</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <small class="text-muted d-block">Loss Reserves</small>
+                        <h4 class="text-info">@LossReserves.ToString("C")</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <small class="text-muted d-block">Expense Reserves</small>
+                        <h4 class="text-warning">@ExpenseReserves.ToString("C")</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <small class="text-muted d-block">Total Paid</small>
+                        <h4 class="text-success">@TotalPaid.ToString("C")</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Financial Breakdown -->
+        <h6 class="mb-3">Financial Breakdown by Feature</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Feature</th>
+                        <th>Coverage - Claimant</th>
+                        <th>Loss Reserve</th>
+                        <th>Expense Reserve</th>
+                        <th>Total Reserve</th>
+                        <th>Loss Paid</th>
+                        <th>Expense Paid</th>
+                        <th>Total Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var subClaim in SubClaims)
+                    {
+                        var totalReserve = subClaim.ExpenseReserve + subClaim.IndemnityReserve;
+                        <tr>
+                            <td><strong>@subClaim.FeatureNumber.ToString("D2")</strong></td>
+                            <td><strong>@subClaim.Coverage</strong> - @subClaim.ClaimantName</td>
+                            <td>@subClaim.IndemnityReserve.ToString("C")</td>
+                            <td>@subClaim.ExpenseReserve.ToString("C")</td>
+                            <td>@totalReserve.ToString("C")</td>
+                            <td>$0.00</td>
+                            <td>$0.00</td>
+                            <td>$0.00</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="2">TOTALS</th>
+                        <th>@LossReserves.ToString("C")</th>
+                        <th>@ExpenseReserves.ToString("C")</th>
+                        <th>@TotalReserves.ToString("C")</th>
+                        <th>$0.00</th>
+                        <th>$0.00</th>
+                        <th>@TotalPaid.ToString("C")</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<SubClaim> SubClaims { get; set; } = [];
+
+    private decimal TotalReserves => SubClaims.Sum(s => s.ExpenseReserve + s.IndemnityReserve);
+    private decimal LossReserves => SubClaims.Sum(s => s.IndemnityReserve);
+    private decimal ExpenseReserves => SubClaims.Sum(s => s.ExpenseReserve);
+    private decimal TotalPaid => 0; // Placeholder for actual paid amounts
+
+    protected override void OnParametersSet()
+    {
+        // Recalculate totals when SubClaims change
+    }
+}

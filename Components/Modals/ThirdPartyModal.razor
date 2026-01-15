@@ -1,0 +1,919 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Shared
+
+<div class="modal fade" id="thirdPartyModal" tabindex="-1" role="dialog" aria-labelledby="thirdPartyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="thirdPartyModalLabel">@(IsEditMode ? "Edit Third Party" : "Add Third Party")</h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+                <div class="mb-3">
+                    <label class="form-label">Party Type *</label>
+                    <select class="form-select" @bind="ThirdParty.Type">
+                        <option value="">-- Select Type --</option>
+                        <option value="Vehicle">Third Party Vehicle</option>
+                        <option value="Passenger">Third Party Passenger</option>
+                        <option value="Pedestrian">Pedestrian</option>
+                        <option value="Bicyclist">Bicyclist</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ThirdParty.Type))
+                {
+                    @* Vehicle dropdown for Passenger third-parties: place this between Party Type and Name *@
+                    @if (ThirdParty.Type == "Passenger")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Vehicle</label>
+                            <select class="form-select" @bind="ThirdParty.SelectedVehicleVin">
+                                @if (ThirdPartyVehicleVins == null || !ThirdPartyVehicleVins.Any())
+                                {
+                                    <option value="">(No third-party vehicles available)</option>
+                                }
+                                else if (ThirdPartyVehicleVins.Count == 1)
+                                {
+                                    <option value="@ThirdPartyVehicleVins[0]">@ThirdPartyVehicleVins[0]</option>
+                                }
+                                else
+                                {
+                                    <option value="">--Please select Vin--</option>
+                                    @foreach (var vin in ThirdPartyVehicleVins)
+                                    {
+                                        <option value="@vin">@vin</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">@(ThirdParty.Type == "Vehicle" ? "Vehicle Owner Name *" : "Name *")</label>
+                        <input type="text" class="form-control" @bind="ThirdParty.Name" @bind:after="SyncOwnerToDriverIfSame"
+                               placeholder="@(ThirdParty.Type == "Vehicle" ? "Vehicle Owner Name" : "Person or Entity Name")" />
+                    </div>
+
+                    <!-- Third Party Address -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">@(ThirdParty.Type == "Vehicle" ? "Owner " : "")Address Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Street Address</label>
+                                    <input type="text" class="form-control" @bind="ThirdParty.Address.StreetAddress" @bind:after="SyncOwnerToDriverIfSame" 
+                                           placeholder="Street Address" />
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Address Line 2</label>
+                                    <input type="text" class="form-control" @bind="ThirdParty.Address.AddressLine2" @bind:after="SyncOwnerToDriverIfSame" 
+                                           placeholder="Apt, Suite, etc." />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" @bind="ThirdParty.Address.City" @bind:after="SyncOwnerToDriverIfSame" 
+                                           placeholder="City" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">State</label>
+                                    <input type="text" class="form-control" @bind="ThirdParty.Address.State" @bind:after="SyncOwnerToDriverIfSame" 
+                                           maxlength="2" placeholder="State" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Zip Code</label>
+                                    <input type="text" class="form-control" @bind="ThirdParty.Address.ZipCode" @bind:after="SyncOwnerToDriverIfSame" 
+                                           placeholder="Zip" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">@(ThirdParty.Type == "Vehicle" ? "Owner " : "")Contact Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" value="@OwnerPhoneDisplay" 
+                                           @onchange="OnOwnerPhoneChanged" placeholder="(555) 000-0000" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" @bind="ThirdParty.Email" @bind:after="SyncOwnerToDriverIfSame" />
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <label class="form-label">FEIN/SS#</label>
+                                <input type="text" class="form-control" @bind="ThirdParty.FeinSsNumber" @bind:after="SyncOwnerToDriverIfSame" />
+                                <div class="form-text">
+                                    <small>
+                                        FEIN (Federal Employer Identification Number) or SS# (Social Security Number) is optional.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (ThirdParty.Type == "Vehicle")
+                    {
+                        <!-- Third Party Insurance Information - In Owner Section -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Owner's Insurance Information <small class="text-muted">(Optional)</small></h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Insurance Carrier</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.InsuranceCarrier" 
+                                               placeholder="e.g., State Farm, Geico, Progressive" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Policy Number</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.InsurancePolicyNumber" 
+                                               placeholder="Third party's policy number" />
+                                    </div>
+                                </div>
+                                <div class="form-text mt-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Enter the third party vehicle owner's insurance information if available. This is optional.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Vehicle Details</h6>
+                            </div>
+                            <div class="card-body">
+                                @if (ThirdParty.Vehicle == null)
+                                {
+                                    ThirdParty.Vehicle = new();
+                                }
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">VIN</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Vin" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Year</label>
+                                        <input type="number" class="form-control" @bind="ThirdParty.Vehicle.Year" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Make</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Make" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Model</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.Model" />
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Plate #</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.PlateNumber" placeholder="License Plate Number" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Plate State</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Vehicle.PlateState" maxlength="2" placeholder="State (e.g., CA)" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Driver Information</h6>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="driverSameAsOwner" 
+                                               @bind="DriverSameAsOwner" @bind:after="OnDriverSameAsOwnerChanged" />
+                                        <label class="form-check-label" for="driverSameAsOwner">Driver Same as Owner</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if (ThirdParty.Driver == null)
+                                {
+                                    ThirdParty.Driver = new();
+                                }
+                                
+                                @if (DriverSameAsOwner)
+                                {
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>Driver information auto-filled from owner details.
+                                    </div>
+                                }
+                                
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Driver Name</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.Name" 
+                                               disabled="@DriverSameAsOwner" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Date of Birth</label>
+                                        <input type="date" class="form-control" @bind="ThirdParty.Driver.DateOfBirth" />
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">License Number</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.LicenseNumber" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">License State</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.LicenseState" maxlength="2" />
+                                    </div>
+                                </div>
+
+                                <!-- Driver Address -->
+                                <div class="border-top pt-3 mt-3">
+                                    <h6 class="mb-3">Driver Address</h6>
+                                    @if (DriverSameAsOwner)
+                                    {
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-12">
+                                                <label class="form-label">Street Address</label>
+                                                <input type="text" class="form-control" value="@ThirdParty.Driver.Address.StreetAddress" disabled />
+                                            </div>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Address Line 2</label>
+                                                <input type="text" class="form-control" value="@ThirdParty.Driver.Address.AddressLine2" disabled />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">City</label>
+                                                <input type="text" class="form-control" value="@ThirdParty.Driver.Address.City" disabled />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">State</label>
+                                                <input type="text" class="form-control" value="@ThirdParty.Driver.Address.State" disabled />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Zip Code</label>
+                                                <input type="text" class="form-control" value="@ThirdParty.Driver.Address.ZipCode" disabled />
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-12">
+                                                <label class="form-label">Street Address</label>
+                                                <input type="text" class="form-control" @bind="ThirdParty.Driver.Address.StreetAddress" @bind:after="SyncOwnerToDriverIfSame" />
+                                            </div>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Address Line 2</label>
+                                                <input type="text" class="form-control" @bind="ThirdParty.Driver.Address.AddressLine2" @bind:after="SyncOwnerToDriverIfSame" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">City</label>
+                                                <input type="text" class="form-control" @bind="ThirdParty.Driver.Address.City" @bind:after="SyncOwnerToDriverIfSame" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">State</label>
+                                                <input type="text" class="form-control" @bind="ThirdParty.Driver.Address.State" @bind:after="SyncOwnerToDriverIfSame" maxlength="2" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Zip Code</label>
+                                                <input type="text" class="form-control" @bind="ThirdParty.Driver.Address.ZipCode" @bind:after="SyncOwnerToDriverIfSame" />
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Driver Contact Info -->
+                                <div class="border-top pt-3 mt-3">
+                                    <h6 class="mb-3">Driver Contact</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Phone Number</label>
+                                            <input type="tel" class="form-control" value="@DriverPhoneDisplay" 
+                                                   @onchange="OnDriverPhoneChanged" placeholder="(555) 000-0000"
+                                                   disabled="@DriverSameAsOwner" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" class="form-control" @bind="ThirdParty.Driver.Email" 
+                                                   disabled="@DriverSameAsOwner" />
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="form-label">FEIN/SS# <small class="text-muted">(Optional)</small></label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.Driver.FeinSsNumber" 
+                                               disabled="@DriverSameAsOwner" placeholder="Optional" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @* Vehicle dropdown was moved above (between Party Type and Name) *@
+
+                    <div class="mb-4">
+                        <label class="form-label">Was this party injured?</label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="thirdPartyInjured" id="thirdPartyInjuredYes" 
+                                       value="true" checked="@ThirdParty.WasInjured" @onchange="@((ChangeEventArgs e) => SetInjured(true))" />
+                                <label class="form-check-label" for="thirdPartyInjuredYes">Yes</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="thirdPartyInjured" id="thirdPartyInjuredNo" 
+                                       value="false" checked="@(!ThirdParty.WasInjured)" @onchange="@((ChangeEventArgs e) => SetInjured(false))" />
+                                <label class="form-check-label" for="thirdPartyInjuredNo">No</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (ThirdParty.WasInjured)
+                    {
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-circle"></i> A feature/sub-claim will be created for this injury after you save.
+                        </div>
+
+                        @if (ThirdParty.Type == "Vehicle")
+                        {
+                            <!-- Who is the injured party selection - Vehicle type only -->
+                            <div class="card mb-4 border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="bi bi-person-exclamation me-2"></i>Who is the Injured Party? (Claimant)</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Important:</strong> The injured party is the claimant for this claim. Select who was injured in this accident.
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="injuredPartyType" id="injuredPartyOwner" 
+                                                       value="Owner" checked="@(ThirdParty.InjuredParty == "Owner" || string.IsNullOrEmpty(ThirdParty.InjuredParty))" 
+                                                       @onchange="@(() => ThirdParty.InjuredParty = "Owner")" />
+                                                <label class="form-check-label" for="injuredPartyOwner">
+                                                    <strong>Vehicle Owner</strong>
+                                                    @if (!string.IsNullOrEmpty(ThirdParty.Name))
+                                                    {
+                                                        <span class="text-muted ms-1">(@ThirdParty.Name)</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="injuredPartyType" id="injuredPartyDriver" 
+                                                       value="Driver" checked="@(ThirdParty.InjuredParty == "Driver")" 
+                                                       @onchange="@(() => ThirdParty.InjuredParty = "Driver")" 
+                                                       disabled="@DriverSameAsOwner" />
+                                                <label class="form-check-label" for="injuredPartyDriver">
+                                                    <strong>Driver</strong>
+                                                    @if (DriverSameAsOwner)
+                                                    {
+                                                        <span class="text-muted ms-1">(Same as Owner)</span>
+                                                    }
+                                                    else if (ThirdParty.Driver != null && !string.IsNullOrEmpty(ThirdParty.Driver.Name))
+                                                    {
+                                                        <span class="text-muted ms-1">(@ThirdParty.Driver.Name)</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if (DriverSameAsOwner)
+                                    {
+                                        <div class="form-text mt-2">
+                                            <small class="text-muted">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                Driver is same as Owner, so Owner will be the injured party (claimant).
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <div class="mb-4">
+                            <InjuryTemplateUnified @bind-InjuryInfo="ThirdParty.InjuryInfo" />
+                        </div>
+                    }
+
+                    <div class="mb-4">
+                        <label class="form-label">Is this party represented by an attorney?</label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="thirdPartyAttorney" id="thirdPartyAttorneyYes" 
+                                       value="true" @onchange="@((ChangeEventArgs e) => SetHasAttorney(bool.Parse((string?)e.Value ?? "false")))" />
+                                <label class="form-check-label" for="thirdPartyAttorneyYes">Yes</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="thirdPartyAttorney" id="thirdPartyAttorneyNo" 
+                                       value="false" checked @onchange="@((ChangeEventArgs e) => SetHasAttorney(bool.Parse((string?)e.Value ?? "false")))" />
+                                <label class="form-check-label" for="thirdPartyAttorneyNo">No</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (ThirdParty.HasAttorney)
+                    {
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Attorney Information</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="SearchAttorney">
+                                        <i class="bi bi-search me-1"></i>Search from Vendor Master
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @{ if (ThirdParty.AttorneyInfo == null) { ThirdParty.AttorneyInfo = new AttorneyInfo { Address = new Address() }; } }
+
+                                @if (SelectedAttorneyVendor != null)
+                                {
+                                    <div class="alert alert-success mb-3">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <i class="bi bi-check-circle me-2"></i>
+                                                <strong>Attorney loaded from Vendor Master:</strong> @SelectedAttorneyVendor.Name
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSelectedAttorney">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Attorney Name</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.AttorneyInfo.Name" 
+                                               disabled="@(SelectedAttorneyVendor != null)" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Firm Name</label>
+                                        <input type="text" class="form-control" @bind="ThirdParty.AttorneyInfo.FirmName" 
+                                               disabled="@(SelectedAttorneyVendor != null)" />
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Phone Number</label>
+                                        <input type="tel" class="form-control" value="@AttorneyPhoneDisplay" 
+                                               @onchange="OnAttorneyPhoneChanged" placeholder="(555) 000-0000"
+                                               disabled="@(SelectedAttorneyVendor != null)" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" @bind="ThirdParty.AttorneyInfo.Email" 
+                                               disabled="@(SelectedAttorneyVendor != null)" />
+                                    </div>
+                                </div>
+
+                                <!-- Attorney Address -->
+                                @if (SelectedAttorneyVendor != null)
+                                {
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label">Street Address</label>
+                                            <input type="text" class="form-control" value="@ThirdParty.AttorneyInfo.Address.StreetAddress" disabled />
+                                        </div>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Address Line 2</label>
+                                            <input type="text" class="form-control" value="@ThirdParty.AttorneyInfo.Address.AddressLine2" disabled />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">City</label>
+                                            <input type="text" class="form-control" value="@ThirdParty.AttorneyInfo.Address.City" disabled />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">State</label>
+                                            <input type="text" class="form-control" value="@ThirdParty.AttorneyInfo.Address.State" disabled />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Zip Code</label>
+                                            <input type="text" class="form-control" value="@ThirdParty.AttorneyInfo.Address.ZipCode" disabled />
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <AddressTemplate 
+                                        @bind-StreetAddress="ThirdParty.AttorneyInfo.Address.StreetAddress"
+                                        @bind-AddressLine2="ThirdParty.AttorneyInfo.Address.AddressLine2"
+                                        @bind-City="ThirdParty.AttorneyInfo.Address.City"
+                                        @bind-State="ThirdParty.AttorneyInfo.Address.State"
+                                        @bind-ZipCode="ThirdParty.AttorneyInfo.Address.ZipCode"
+                                        Label1="Street Address"
+                                        Label2="Address Line 2" />
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="OnAdd" disabled="@(!IsFormValid())">
+                    <i class="bi bi-check-circle"></i> @(IsEditMode ? "Save Changes" : "Save & Create Feature")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attorney Search Modal -->
+<AttorneySearchModal @ref="attorneySearchModal" 
+                     ModalId="thirdPartyAttorneySearchModal"
+                     OnAttorneySelected="OnAttorneySelected" 
+                     OnManualEntry="OnAttorneyManualEntry"
+                     OnCancelled="@(() => {})" />
+
+@code {
+    [Parameter]
+    public EventCallback<ThirdParty> OnThirdPartyAdded { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    [Parameter]
+    public List<string> NatureOfInjuries { get; set; } = [];
+    [Parameter]
+    public List<string> ThirdPartyVehicleVins { get; set; } = new();
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private ThirdParty ThirdParty = new();
+    private bool DriverSameAsOwner = false;
+    private bool IsEditMode = false;
+    private AttorneySearchModal? attorneySearchModal;
+    private Vendor? SelectedAttorneyVendor;
+    
+    // Phone display fields
+    private string OwnerPhoneDisplay = "";
+    private string DriverPhoneDisplay = "";
+    private string AttorneyPhoneDisplay = "";
+
+    public async Task ShowAsync()
+    {
+        ThirdParty = new();
+        DriverSameAsOwner = false;
+        OwnerPhoneDisplay = "";
+        DriverPhoneDisplay = "";
+        AttorneyPhoneDisplay = "";
+        SelectedAttorneyVendor = null;
+        IsEditMode = false;
+        
+        // Ensure all nested objects are initialized
+        ThirdParty.Address = new();
+        ThirdParty.Vehicle = new();
+        ThirdParty.Driver = new();
+        ThirdParty.Driver.Address = new();
+        ThirdParty.AttorneyInfo = new AttorneyInfo { Address = new Address() };
+        ThirdParty.InjuryInfo = new();
+        ThirdParty.InjuredParty = "Owner"; // Default to Owner as injured party
+        // If there is exactly one third-party vehicle VIN available, preselect it for passenger entries
+        if (ThirdPartyVehicleVins != null && ThirdPartyVehicleVins.Count == 1)
+        {
+            ThirdParty.SelectedVehicleVin = ThirdPartyVehicleVins.First();
+        }
+            
+        // Default date to today
+        ThirdParty.Driver.DateOfBirth = DateTime.Today;
+        
+        await JS.InvokeVoidAsync("ShowModal", "thirdPartyModal");
+    }
+
+    public async Task ShowAsync(ThirdParty partyToEdit)
+    {
+        IsEditMode = true;
+        
+        // Create a copy of the party to edit (to avoid modifying original until save)
+        ThirdParty = new ThirdParty
+        {
+            Name = partyToEdit.Name,
+            Type = partyToEdit.Type,
+            PhoneNumber = partyToEdit.PhoneNumber,
+            Email = partyToEdit.Email,
+            FeinSsNumber = partyToEdit.FeinSsNumber,
+            InsuranceCarrier = partyToEdit.InsuranceCarrier,
+            InsurancePolicyNumber = partyToEdit.InsurancePolicyNumber,
+            InjuredParty = partyToEdit.InjuredParty ?? "Owner", // Default to Owner if not set
+            WasInjured = partyToEdit.WasInjured,
+            HasAttorney = partyToEdit.HasAttorney,
+            Address = partyToEdit.Address != null ? new Address
+            {
+                StreetAddress = partyToEdit.Address.StreetAddress,
+                AddressLine2 = partyToEdit.Address.AddressLine2,
+                City = partyToEdit.Address.City,
+                State = partyToEdit.Address.State,
+                ZipCode = partyToEdit.Address.ZipCode
+            } : new Address(),
+            Vehicle = partyToEdit.Vehicle != null ? new VehicleInfo
+            {
+                Vin = partyToEdit.Vehicle.Vin,
+                Year = partyToEdit.Vehicle.Year,
+                Make = partyToEdit.Vehicle.Make,
+                Model = partyToEdit.Vehicle.Model,
+                PlateNumber = partyToEdit.Vehicle.PlateNumber,
+                PlateState = partyToEdit.Vehicle.PlateState
+            } : new VehicleInfo(),
+            Driver = partyToEdit.Driver != null ? new DriverInfo
+            {
+                Name = partyToEdit.Driver.Name,
+                DateOfBirth = partyToEdit.Driver.DateOfBirth,
+                LicenseNumber = partyToEdit.Driver.LicenseNumber,
+                LicenseState = partyToEdit.Driver.LicenseState,
+                PhoneNumber = partyToEdit.Driver.PhoneNumber,
+                Email = partyToEdit.Driver.Email,
+                FeinSsNumber = partyToEdit.Driver.FeinSsNumber,
+                Address = partyToEdit.Driver.Address != null ? new Address
+                {
+                    StreetAddress = partyToEdit.Driver.Address.StreetAddress,
+                    AddressLine2 = partyToEdit.Driver.Address.AddressLine2,
+                    City = partyToEdit.Driver.Address.City,
+                    State = partyToEdit.Driver.Address.State,
+                    ZipCode = partyToEdit.Driver.Address.ZipCode
+                } : new Address()
+            } : new DriverInfo { Address = new Address() },
+            InjuryInfo = partyToEdit.InjuryInfo != null ? new Injury
+            {
+                InjuryType = partyToEdit.InjuryInfo.InjuryType,
+                InjuryDescription = partyToEdit.InjuryInfo.InjuryDescription,
+                SeverityLevel = partyToEdit.InjuryInfo.SeverityLevel,
+                IsFatality = partyToEdit.InjuryInfo.IsFatality,
+                WasTakenToHospital = partyToEdit.InjuryInfo.WasTakenToHospital,
+                HospitalName = partyToEdit.InjuryInfo.HospitalName,
+                HospitalStreetAddress = partyToEdit.InjuryInfo.HospitalStreetAddress,
+                HospitalCity = partyToEdit.InjuryInfo.HospitalCity,
+                HospitalState = partyToEdit.InjuryInfo.HospitalState,
+                HospitalZipCode = partyToEdit.InjuryInfo.HospitalZipCode,
+                TreatingPhysician = partyToEdit.InjuryInfo.TreatingPhysician
+            } : new Injury(),
+            AttorneyInfo = partyToEdit.AttorneyInfo != null ? new AttorneyInfo
+            {
+                Name = partyToEdit.AttorneyInfo.Name,
+                FirmName = partyToEdit.AttorneyInfo.FirmName,
+                PhoneNumber = partyToEdit.AttorneyInfo.PhoneNumber,
+                Email = partyToEdit.AttorneyInfo.Email,
+                Address = partyToEdit.AttorneyInfo.Address != null ? new Address
+                {
+                    StreetAddress = partyToEdit.AttorneyInfo.Address.StreetAddress,
+                    AddressLine2 = partyToEdit.AttorneyInfo.Address.AddressLine2,
+                    City = partyToEdit.AttorneyInfo.Address.City,
+                    State = partyToEdit.AttorneyInfo.Address.State,
+                    ZipCode = partyToEdit.AttorneyInfo.Address.ZipCode
+                } : new Address()
+            } : new AttorneyInfo { Address = new Address() }
+        };
+        
+        // Set phone display fields
+        OwnerPhoneDisplay = FormatPhoneNumber(ThirdParty.PhoneNumber);
+        DriverPhoneDisplay = FormatPhoneNumber(ThirdParty.Driver?.PhoneNumber);
+        AttorneyPhoneDisplay = FormatPhoneNumber(ThirdParty.AttorneyInfo?.PhoneNumber);
+        
+        DriverSameAsOwner = false;  // Reset this flag for edit mode
+        SelectedAttorneyVendor = null;
+        
+        await JS.InvokeVoidAsync("ShowModal", "thirdPartyModal");
+    }
+
+    private async Task SearchAttorney()
+    {
+        if (attorneySearchModal != null)
+        {
+            await attorneySearchModal.ShowAsync();
+        }
+    }
+
+    private void OnAttorneySelected(AttorneyInfo attorneyInfo)
+    {
+        ThirdParty.AttorneyInfo = attorneyInfo;
+        SelectedAttorneyVendor = new Vendor { Name = attorneyInfo.FirmName };
+        AttorneyPhoneDisplay = FormatPhoneNumber(attorneyInfo.PhoneNumber);
+        StateHasChanged();
+    }
+
+    private void OnAttorneyManualEntry()
+    {
+        // User chose to enter manually - just close the search modal
+        SelectedAttorneyVendor = null;
+    }
+
+    private void ClearSelectedAttorney()
+    {
+        SelectedAttorneyVendor = null;
+        ThirdParty.AttorneyInfo = new AttorneyInfo { Address = new Address() };
+        AttorneyPhoneDisplay = "";
+    }
+
+    private void OnDriverSameAsOwnerChanged()
+    {
+        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        {
+            // Ensure Driver Address is initialized
+            if (ThirdParty.Driver.Address == null)
+                ThirdParty.Driver.Address = new();
+            
+            // Copy owner info to driver
+            ThirdParty.Driver.Name = ThirdParty.Name;
+            ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
+            ThirdParty.Driver.Email = ThirdParty.Email;
+            ThirdParty.Driver.FeinSsNumber = ThirdParty.FeinSsNumber;
+            
+            // Copy full address including City, State, and ZipCode
+            ThirdParty.Driver.Address.StreetAddress = ThirdParty.Address.StreetAddress;
+            ThirdParty.Driver.Address.AddressLine2 = ThirdParty.Address.AddressLine2;
+            ThirdParty.Driver.Address.City = ThirdParty.Address.City;
+            ThirdParty.Driver.Address.State = ThirdParty.Address.State;
+            ThirdParty.Driver.Address.ZipCode = ThirdParty.Address.ZipCode;
+            
+            DriverPhoneDisplay = OwnerPhoneDisplay;
+            
+            // When driver is same as owner, injured party must be "Owner"
+            if (ThirdParty.WasInjured)
+            {
+                ThirdParty.InjuredParty = "Owner";
+            }
+            
+            // Force UI refresh
+            StateHasChanged();
+        }
+    }
+
+    private void OnOwnerPhoneChanged(ChangeEventArgs e)
+    {
+        var rawValue = e.Value?.ToString() ?? "";
+        ThirdParty.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
+        OwnerPhoneDisplay = FormatPhoneNumber(ThirdParty.PhoneNumber);
+        
+        // Update driver phone if same as owner
+        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        {
+            ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
+            DriverPhoneDisplay = OwnerPhoneDisplay;
+        }
+    }
+
+    // Method to sync owner changes to driver when "Driver Same as Owner" is checked
+    private void SyncOwnerToDriverIfSame()
+    {
+        if (DriverSameAsOwner && ThirdParty.Driver != null)
+        {
+            ThirdParty.Driver.Name = ThirdParty.Name;
+            ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
+            ThirdParty.Driver.Email = ThirdParty.Email;
+            ThirdParty.Driver.FeinSsNumber = ThirdParty.FeinSsNumber;
+            
+            if (ThirdParty.Driver.Address == null)
+                ThirdParty.Driver.Address = new();
+                
+            ThirdParty.Driver.Address.StreetAddress = ThirdParty.Address.StreetAddress;
+            ThirdParty.Driver.Address.AddressLine2 = ThirdParty.Address.AddressLine2;
+            ThirdParty.Driver.Address.City = ThirdParty.Address.City;
+            ThirdParty.Driver.Address.State = ThirdParty.Address.State;
+            ThirdParty.Driver.Address.ZipCode = ThirdParty.Address.ZipCode;
+            
+            DriverPhoneDisplay = OwnerPhoneDisplay;
+        }
+    }
+
+    private void OnDriverPhoneChanged(ChangeEventArgs e)
+    {
+        if (ThirdParty.Driver == null) return;
+        var rawValue = e.Value?.ToString() ?? "";
+        ThirdParty.Driver.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
+        DriverPhoneDisplay = FormatPhoneNumber(ThirdParty.Driver.PhoneNumber);
+    }
+
+    private void OnAttorneyPhoneChanged(ChangeEventArgs e)
+    {
+        if (ThirdParty.AttorneyInfo == null) return;
+        var rawValue = e.Value?.ToString() ?? "";
+        ThirdParty.AttorneyInfo.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
+        AttorneyPhoneDisplay = FormatPhoneNumber(ThirdParty.AttorneyInfo.PhoneNumber);
+    }
+
+    private string FormatPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrEmpty(phone))
+            return "";
+        
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        
+        if (digits.Length == 10)
+            return $"({digits[..3]}) {digits[3..6]}-{digits[6..]}";
+        else if (digits.Length == 11 && digits[0] == '1')
+            return $"+1 ({digits[1..4]}) {digits[4..7]}-{digits[7..]}";
+        
+        return phone;
+    }
+
+    private void SetInjured(bool injured)
+    {
+        ThirdParty.WasInjured = injured;
+        if (!injured)
+        {
+            ThirdParty.InjuryInfo = new();
+            ThirdParty.InjuredParty = string.Empty;
+        }
+        else
+        {
+            if (ThirdParty.InjuryInfo == null)
+            {
+                ThirdParty.InjuryInfo = new();
+            }
+            // Default to Owner as injured party if not already set
+            if (string.IsNullOrEmpty(ThirdParty.InjuredParty))
+            {
+                ThirdParty.InjuredParty = "Owner";
+            }
+            // If driver is same as owner, force InjuredParty to "Owner"
+            if (DriverSameAsOwner)
+            {
+                ThirdParty.InjuredParty = "Owner";
+            }
+        }
+    }
+
+    private void SetHasAttorney(bool hasAttorney)
+    {
+        ThirdParty.HasAttorney = hasAttorney;
+        if (!hasAttorney)
+        {
+            ThirdParty.AttorneyInfo = new();
+            ThirdParty.AttorneyInfo.Address = new();
+            SelectedAttorneyVendor = null;
+            AttorneyPhoneDisplay = "";
+        }
+        else if (ThirdParty.AttorneyInfo == null)
+        {
+            ThirdParty.AttorneyInfo = new();
+            ThirdParty.AttorneyInfo.Address = new();
+        }
+    }
+
+    private bool IsFormValid()
+    {
+        // ONLY the Name and Type are required to set up a claim
+        // All other fields (email, phone, FEIN, attorney, etc.) are OPTIONAL
+        if (string.IsNullOrWhiteSpace(ThirdParty.Name) || string.IsNullOrEmpty(ThirdParty.Type))
+            return false;
+
+        // FEIN is optional for all party types
+        // No FEIN validation required
+
+        // If injured, must have injury type and description
+        if (ThirdParty.WasInjured)
+        {
+            if (string.IsNullOrEmpty(ThirdParty.InjuryInfo?.InjuryType) ||
+                string.IsNullOrEmpty(ThirdParty.InjuryInfo?.InjuryDescription))
+                return false;
+        }
+
+        // When adding a passenger, require VIN selection if multiple third-party vehicles exist
+        if (ThirdParty.Type == "Passenger" && ThirdPartyVehicleVins != null && ThirdPartyVehicleVins.Count > 1)
+        {
+            if (string.IsNullOrEmpty(ThirdParty.SelectedVehicleVin))
+                return false;
+        }
+
+        // Attorney information is OPTIONAL even if HasAttorney is true
+        // User can indicate they have an attorney but fill in details later
+        // NO validation for attorney name/firm required
+
+        return true;
+    }
+
+    private async Task OnAdd()
+    {
+        if (IsFormValid())
+        {
+            await OnThirdPartyAdded.InvokeAsync(ThirdParty);
+            await JS.InvokeVoidAsync("HideModal", "thirdPartyModal");
+        }
+    }
+
+    private async Task OnCancel()
+    {
+        await OnCancelled.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "thirdPartyModal");
+    }
+}

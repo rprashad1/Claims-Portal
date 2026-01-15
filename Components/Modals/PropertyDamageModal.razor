@@ -1,0 +1,250 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+
+<div class="modal fade" id="propertyDamageModal" tabindex="-1" role="dialog" aria-labelledby="propertyDamageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="propertyDamageModalLabel">@(IsEditMode ? "Edit Property Damage" : "Add Property Damage")</h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Property Owner Information Section -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">Property Owner Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Owner Name *</label>
+                            <input type="text" class="form-control" @bind="PropertyDamage.OwnerName" placeholder="Full Name" />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" value="@OwnerPhoneDisplay" 
+                                       @onchange="OnOwnerPhoneChanged" placeholder="(555) 000-0000" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-control" @bind="PropertyDamage.OwnerEmail" placeholder="email@example.com" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Owner FEIN/SS#</label>
+                            <input type="text" class="form-control" @bind="PropertyDamage.OwnerFeinSsNumber" placeholder="FEIN or Social Security # (Optional)" />
+                        </div>
+                        <!-- Owner Address -->
+                        <div class="border-top pt-3 mt-3">
+                            <h6 class="mb-3">Owner Address</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Street Address</label>
+                                <input type="text" class="form-control" @bind="PropertyDamage.OwnerAddress.StreetAddress" placeholder="Street Address" />
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Address Line 2</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.OwnerAddress.AddressLine2" placeholder="Apt, Suite, etc." />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.OwnerAddress.City" placeholder="City" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">State</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.OwnerAddress.State" maxlength="2" placeholder="State" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Zip</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.OwnerAddress.ZipCode" placeholder="Zip" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Property Location & Description Section -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">Property Location & Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <!-- Property Address (where the property is located) -->
+                        <div class="mb-3">
+                            <h6 class="mb-3">Property Location Address</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Street Address</label>
+                                <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.StreetAddress" placeholder="Property Address" />
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Address Line 2</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.AddressLine2" placeholder="Apt, Suite, etc." />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.City" placeholder="City" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">State</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.State" maxlength="2" placeholder="State" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Zip</label>
+                                    <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.ZipCode" placeholder="Zip" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Property Type *</label>
+                            <select class="form-select" @bind="PropertyDamage.PropertyType">
+                                <option value="">-- Select Type --</option>
+                                <option value="Building">Building</option>
+                                <option value="Fence">Fence</option>
+                                <option value="Shed">Shed</option>
+                                <option value="Vehicle">Vehicle</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Property Description *</label>
+                            <textarea class="form-control" rows="3" @bind="PropertyDamage.Description" 
+                                      placeholder="Describe the property (e.g., 2-story white house, brick fence, red sedan)"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Property Damage Section -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">Damage Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Property Damage Description *</label>
+                            <textarea class="form-control" rows="4" @bind="PropertyDamage.DamageDescription" 
+                                      placeholder="Detailed description of the damage..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Damage Estimate</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" @bind="PropertyDamage.EstimatedDamage" 
+                                       placeholder="0.00" step="0.01" min="0" />
+                            </div>
+                            <small class="text-muted">Optional - enter if estimate is available</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="OnSave" disabled="@(!IsFormValid())">
+                    <i class="bi bi-check-circle"></i> @(IsEditMode ? "Save Changes" : "Save & Create Feature")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<PropertyDamage> OnPropertyDamageAdded { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private PropertyDamage PropertyDamage = new();
+    private PropertyDamage? OriginalPropertyDamage = null;
+    private string OwnerPhoneDisplay = "";
+    private bool IsEditMode = false;
+
+    public async Task ShowAsync(PropertyDamage? existingProperty = null)
+    {
+        if (existingProperty != null)
+        {
+            IsEditMode = true;
+            OriginalPropertyDamage = existingProperty;
+            PropertyDamage = new()
+            {
+                Id = existingProperty.Id,
+                OwnerName = existingProperty.OwnerName,
+                OwnerAddress = existingProperty.OwnerAddress?.Copy() ?? new(),
+                OwnerPhoneNumber = existingProperty.OwnerPhoneNumber,
+                OwnerEmail = existingProperty.OwnerEmail,
+                OwnerFeinSsNumber = existingProperty.OwnerFeinSsNumber,
+                PropertyAddress = existingProperty.PropertyAddress?.Copy() ?? new(),
+                PropertyType = existingProperty.PropertyType,
+                Description = existingProperty.Description,
+                DamageDescription = existingProperty.DamageDescription,
+                EstimatedDamage = existingProperty.EstimatedDamage
+            };
+            OwnerPhoneDisplay = FormatPhoneNumber(existingProperty.OwnerPhoneNumber);
+        }
+        else
+        {
+            IsEditMode = false;
+            PropertyDamage = new()
+            {
+                OwnerAddress = new(),
+                PropertyAddress = new()
+            };
+            OriginalPropertyDamage = null;
+            OwnerPhoneDisplay = "";
+        }
+        
+        await JS.InvokeVoidAsync("ShowModal", "propertyDamageModal");
+    }
+
+    private void OnOwnerPhoneChanged(ChangeEventArgs e)
+    {
+        var rawValue = e.Value?.ToString() ?? "";
+        PropertyDamage.OwnerPhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
+        OwnerPhoneDisplay = FormatPhoneNumber(PropertyDamage.OwnerPhoneNumber);
+    }
+
+    private string FormatPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrEmpty(phone))
+            return "";
+        
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        
+        if (digits.Length == 10)
+            return $"({digits[..3]}) {digits[3..6]}-{digits[6..]}";
+        else if (digits.Length == 11 && digits[0] == '1')
+            return $"+1 ({digits[1..4]}) {digits[4..7]}-{digits[7..]}";
+        
+        return phone;
+    }
+
+    private bool IsFormValid()
+    {
+        return !string.IsNullOrWhiteSpace(PropertyDamage.OwnerName) &&
+               (PropertyDamage.OwnerAddress?.HasAnyAddress ?? false) &&
+               !string.IsNullOrWhiteSpace(PropertyDamage.PropertyType) &&
+               !string.IsNullOrWhiteSpace(PropertyDamage.Description) &&
+               !string.IsNullOrWhiteSpace(PropertyDamage.DamageDescription);
+        // Note: Damage Estimate is now optional (removed from validation)
+        // Note: FEIN is now optional (not in validation)
+    }
+
+    private async Task OnSave()
+    {
+        if (IsFormValid())
+        {
+            await OnPropertyDamageAdded.InvokeAsync(PropertyDamage);
+            await JS.InvokeVoidAsync("HideModal", "propertyDamageModal");
+        }
+    }
+
+    private async Task OnCancel()
+    {
+        await OnCancelled.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "propertyDamageModal");
+    }
+}

@@ -1,0 +1,205 @@
+@page "/claim/{ClaimNumber}/subclaims"
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Data
+@using Microsoft.EntityFrameworkCore
+@rendermode InteractiveServer
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="mb-1">
+                        <i class="bi bi-layers"></i> Sub-Claims / Features
+                    </h1>
+                    <p class="text-muted">Manage sub-claims and features for claim @ClaimNumber</p>
+                </div>
+                <button class="btn btn-outline-secondary" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Back to Claim
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading sub-claims...</p>
+        </div>
+    }
+    else if (Claim != null)
+    {
+        <!-- Debug Info (remove after testing) -->
+        @if (ShowDebugInfo)
+        {
+            <div class="alert alert-warning mb-4">
+                <h6><i class="bi bi-bug"></i> Debug Information</h6>
+                <small>
+                    <strong>Claim Number:</strong> @Claim.ClaimNumber<br/>
+                    <strong>SubClaims Count (from Models.Claim):</strong> @Claim.SubClaims.Count<br/>
+                    <strong>Database FnolId:</strong> @DatabaseFnolId<br/>
+                    <strong>Database SubClaims Count:</strong> @DatabaseSubClaimsCount<br/>
+                    <strong>Debug Message:</strong> @DebugMessage
+                </small>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-primary me-2" @onclick="RefreshFromDatabase">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh from DB
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowDebugInfo = false">Hide Debug</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <button class="btn btn-sm btn-outline-warning mb-3" @onclick="() => ShowDebugInfo = true">
+                <i class="bi bi-bug"></i> Show Debug Info
+            </button>
+        }
+
+        <!-- Use the shared SubClaimFullView component -->
+        <SubClaimFullView Claim="@Claim" OnSubClaimStatusChanged="RefreshFromDatabase" />
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> Claim not found. The claim number "@ClaimNumber" does not exist.
+            <div class="mt-3">
+                <button class="btn btn-primary btn-sm" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Go Back
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? ClaimNumber { get; set; }
+
+    [Inject]
+    private IDatabaseClaimService DatabaseClaimService { get; set; } = null!;
+    
+    [Inject]
+    private ClaimsPortalDbContext DbContext { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = null!;
+
+    private Models.Claim? Claim { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool ShowDebugInfo { get; set; } = false;
+    private string DebugMessage { get; set; } = "No issues detected.";
+    private long DatabaseFnolId { get; set; } = 0;
+    private int DatabaseSubClaimsCount { get; set; } = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClaimAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadClaimAsync();
+    }
+
+    private async Task LoadClaimAsync()
+    {
+        IsLoading = true;
+        
+        try
+        {
+            if (!string.IsNullOrEmpty(ClaimNumber))
+            {
+                Console.WriteLine($"[SubClaimView] Loading claim: {ClaimNumber}");
+                Claim = await DatabaseClaimService.GetClaimWithDetailsAsync(ClaimNumber);
+                
+                // Debug: Log sub-claims count
+                if (Claim != null)
+                {
+                    Console.WriteLine($"[SubClaimView] Claim {ClaimNumber} loaded. SubClaims count: {Claim.SubClaims.Count}");
+                    foreach (var sc in Claim.SubClaims)
+                    {
+                        Console.WriteLine($"[SubClaimView]   - Feature {sc.FeatureNumber}: {sc.Coverage} - {sc.ClaimantName}");
+                    }
+                    DebugMessage = $"Claim loaded successfully. SubClaims count: {Claim.SubClaims.Count}";
+                    
+                    // Also query database directly for debugging
+                    await LoadDatabaseDebugInfo();
+                }
+                else
+                {
+                    Console.WriteLine($"[SubClaimView] Claim not found for: {ClaimNumber}");
+                    DebugMessage = "Claim not found.";
+                }
+            }
+            else
+            {
+                Console.WriteLine("[SubClaimView] ClaimNumber is null or empty");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SubClaimView] Error loading claim: {ex.Message}");
+            Claim = null;
+            DebugMessage = $"Error loading claim: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            // Force UI update after data is loaded
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadDatabaseDebugInfo()
+    {
+        try
+        {
+            // Find the FNOL by claim number or FNOL number
+            var fnol = await DbContext.FNOLs
+                .FirstOrDefaultAsync(f => f.ClaimNumber == ClaimNumber || f.FnolNumber == ClaimNumber);
+            
+            if (fnol != null)
+            {
+                DatabaseFnolId = fnol.FnolId;
+                
+                // Count sub-claims directly from database
+                DatabaseSubClaimsCount = await DbContext.SubClaims
+                    .CountAsync(sc => sc.FnolId == fnol.FnolId);
+                
+                DebugMessage = $"FNOL found with ID: {fnol.FnolId}, Status: {fnol.FnolStatus}, " +
+                              $"Database SubClaims: {DatabaseSubClaimsCount}";
+            }
+            else
+            {
+                DebugMessage = $"No FNOL found for ClaimNumber: {ClaimNumber}";
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugMessage = $"Error querying database: {ex.Message}";
+        }
+    }
+
+    private async Task RefreshFromDatabase()
+    {
+        await LoadClaimAsync();
+        StateHasChanged();
+    }
+
+    private void GoBack()
+    {
+        if (!string.IsNullOrEmpty(ClaimNumber))
+        {
+            NavigationManager.NavigateTo($"/claim/{ClaimNumber}");
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/fnol");
+        }
+    }
+}

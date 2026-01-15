@@ -1,0 +1,770 @@
+@using ClaimsPortal.Models
+
+<div class="modal fade" id="partyDetailModal" tabindex="-1" role="dialog" aria-labelledby="partyDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header @GetHeaderClass()">
+                <h5 class="modal-title" id="partyDetailModalLabel">
+                    <i class="bi @GetPartyIcon() me-2"></i>@GetModalTitle()
+                </h5>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                @if (Party != null)
+                {
+                    @if (PartyType == "ThirdParty" && ThirdPartyData?.Type == "Vehicle")
+                    {
+                        var isDriverSameAsOwner = ThirdPartyData?.IsDriverSameAsOwner ?? false;
+                        var injuredPartyType = ThirdPartyData?.InjuredParty ?? "Owner";
+                        var claimantIsOwner = injuredPartyType == "Owner" || isDriverSameAsOwner;
+                        var claimantIsDriver = injuredPartyType == "Driver" && !isDriverSameAsOwner;
+                        var claimantName = ThirdPartyData?.GetClaimantName() ?? Party.Name;
+                        
+                        @* ============================================================ *@
+                        @* VEHICLE TYPE - Unified person sections with inline injury    *@
+                        @* ============================================================ *@
+                        
+                        @if (isDriverSameAsOwner)
+                        {
+                            @* Owner is also Driver - Single Section with all info including injury *@
+                            <div class="card mb-3 @(HasInjury ? "border-primary" : "")">
+                                <div class="card-header @(HasInjury ? "bg-primary text-white" : "bg-light")">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-person-fill me-2"></i>@Party.Name
+                                        </h6>
+                                        <div>
+                                            <span class="badge @(HasInjury ? "bg-light text-dark" : "bg-secondary") me-1">Owner</span>
+                                            <span class="badge @(HasInjury ? "bg-light text-info" : "bg-info") me-1">Driver</span>
+                                            @if (HasInjury)
+                                            {
+                                                <span class="badge bg-light text-primary">Claimant</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Name</small>
+                                            <strong>@Party!.Name</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">License Number</small>
+                                            <strong>
+                                                @(string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseNumber) ? "-" : ThirdPartyData.Driver.LicenseNumber)
+                                                @if (!string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseState))
+                                                {
+                                                    <span class="badge bg-secondary ms-1">@ThirdPartyData.Driver.LicenseState</span>
+                                                }
+                                            </strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Phone</small>
+                                            <strong>@Party!.PhoneNumber</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Date of Birth</small>
+                                            <strong>@(ThirdPartyData.Driver?.DateOfBirth != default ? ThirdPartyData.Driver!.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-2">
+                                        <div class="col-md-4">
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>@(string.IsNullOrEmpty(Party!.Email) ? "-" : Party.Email)</strong>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <small class="text-muted d-block">Address</small>
+                                            @if (Party.Address != null && Party.Address.HasAnyAddress)
+                                            {
+                                                <strong>@Party!.Address!.GetFormattedAddress()</strong>
+                                            }
+                                            else
+                                            {
+                                                <strong class="text-muted">-</strong>
+                                            }
+                                        </div>
+                                    </div>
+                                    @* Inline Injury Details *@
+                                    @if (HasInjury && InjuryData != null)
+                                    {
+                                        <div class="border-top pt-3 mt-3">
+                                            <h6 class="text-danger mb-2"><i class="bi bi-bandaid me-1"></i>Injury Details</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Nature of Injury</small>
+                                                    <strong>@InjuryData.InjuryType</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Severity</small>
+                                                    <strong>@InjuryData.GetSeverityDescription()</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Fatality</small>
+                                                    <span class="badge @(InjuryData.IsFatality ? "bg-dark" : "bg-secondary")">
+                                                        @(InjuryData.IsFatality ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Hospitalized</small>
+                                                    <span class="badge @(InjuryData.WasTakenToHospital ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(InjuryData.WasTakenToHospital ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Attorney</small>
+                                                    <span class="badge @(HasAttorney ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(HasAttorney ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(InjuryData.InjuryDescription))
+                                            {
+                                                <div class="row g-3 mt-2">
+                                                    <div class="col-12">
+                                                        <small class="text-muted d-block">Injury Description</small>
+                                                        <div class="border rounded p-2 bg-light">@InjuryData.InjuryDescription</div>
+                                                    </div>
+                                                </div>
+                                            }
+                                            @if (InjuryData.WasTakenToHospital && !string.IsNullOrEmpty(InjuryData.HospitalName))
+                                            {
+                                                <div class="row g-3 mt-2">
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted d-block">Hospital Name</small>
+                                                        <strong>@InjuryData.HospitalName</strong>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted d-block">Hospital Address</small>
+                                                        <strong>
+                                                            @InjuryData.HospitalStreetAddress
+                                                            @if (!string.IsNullOrEmpty(InjuryData.HospitalCity))
+                                                            {
+                                                                <span>, @InjuryData.HospitalCity, @InjuryData.HospitalState @InjuryData.HospitalZipCode</span>
+                                                            }
+                                                        </strong>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted d-block">Treating Physician</small>
+                                                        <strong>@(string.IsNullOrEmpty(InjuryData.TreatingPhysician) ? "-" : InjuryData.TreatingPhysician)</strong>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            @* Owner and Driver are different people - Two Sections *@
+                            
+                            @* Owner Section (with inline injury if owner is claimant) *@
+                            <div class="card mb-3 @(claimantIsOwner && HasInjury ? "border-primary" : "")">
+                                <div class="card-header @(claimantIsOwner && HasInjury ? "bg-primary text-white" : "bg-light")">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-person-fill me-2"></i>@Party.Name
+                                        </h6>
+                                        <div>
+                                            <span class="badge @(claimantIsOwner && HasInjury ? "bg-light text-dark" : "bg-secondary")">Owner</span>
+                                            @if (claimantIsOwner && HasInjury)
+                                            {
+                                                <span class="badge bg-light text-primary ms-1">Claimant</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Name</small>
+                                            <strong>@Party.Name</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Phone</small>
+                                            <strong>@Party.PhoneNumber</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>@(string.IsNullOrEmpty(Party.Email) ? "-" : Party.Email)</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Address</small>
+                                            @if (Party.Address != null && Party.Address.HasAnyAddress)
+                                            {
+                                                <strong>@Party.Address.GetFormattedAddress()</strong>
+                                            }
+                                            else
+                                            {
+                                                <strong class="text-muted">-</strong>
+                                            }
+                                        </div>
+                                    </div>
+                                    @* Inline Injury if Owner is Claimant *@
+                                    @if (claimantIsOwner && HasInjury && InjuryData != null)
+                                    {
+                                        <div class="border-top pt-3 mt-3">
+                                            <h6 class="text-danger mb-2"><i class="bi bi-bandaid me-1"></i>Injury Details</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Nature of Injury</small>
+                                                    <strong>@InjuryData.InjuryType</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Severity</small>
+                                                    <strong>@InjuryData.GetSeverityDescription()</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Fatality</small>
+                                                    <span class="badge @(InjuryData.IsFatality ? "bg-dark" : "bg-secondary")">
+                                                        @(InjuryData.IsFatality ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Hospitalized</small>
+                                                    <span class="badge @(InjuryData.WasTakenToHospital ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(InjuryData.WasTakenToHospital ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Attorney</small>
+                                                    <span class="badge @(HasAttorney ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(HasAttorney ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(InjuryData.InjuryDescription))
+                                            {
+                                                <div class="row g-3 mt-2">
+                                                    <div class="col-12">
+                                                        <small class="text-muted d-block">Injury Description</small>
+                                                        <div class="border rounded p-2 bg-light">@InjuryData.InjuryDescription</div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            @* Driver Section (with inline injury if driver is claimant) *@
+                            <div class="card mb-3 @(claimantIsDriver && HasInjury ? "border-primary" : "")">
+                                <div class="card-header @(claimantIsDriver && HasInjury ? "bg-primary text-white" : "bg-light")">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-person-badge me-2"></i>@(ThirdPartyData.Driver?.Name ?? "-")
+                                        </h6>
+                                        <div>
+                                            <span class="badge @(claimantIsDriver && HasInjury ? "bg-light text-info" : "bg-info")">Driver</span>
+                                            @if (claimantIsDriver && HasInjury)
+                                            {
+                                                <span class="badge bg-light text-primary ms-1">Claimant</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Name</small>
+                                            <strong>@(ThirdPartyData.Driver?.Name ?? "-")</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">License Number</small>
+                                            <strong>
+                                                @(string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseNumber) ? "-" : ThirdPartyData.Driver.LicenseNumber)
+                                                @if (!string.IsNullOrEmpty(ThirdPartyData.Driver?.LicenseState))
+                                                {
+                                                    <span class="badge bg-secondary ms-1">@ThirdPartyData.Driver.LicenseState</span>
+                                                }
+                                            </strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Phone</small>
+                                            <strong>@(string.IsNullOrEmpty(ThirdPartyData.Driver?.PhoneNumber) ? "-" : ThirdPartyData.Driver.PhoneNumber)</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Date of Birth</small>
+                                            <strong>@(ThirdPartyData.Driver?.DateOfBirth != default ? ThirdPartyData.Driver.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-2">
+                                        <div class="col-md-4">
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>@(string.IsNullOrEmpty(ThirdPartyData.Driver?.Email) ? "-" : ThirdPartyData.Driver.Email)</strong>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <small class="text-muted d-block">Address</small>
+                                            @if (ThirdPartyData.Driver?.Address != null && ThirdPartyData.Driver.Address.HasAnyAddress)
+                                            {
+                                                <strong>@ThirdPartyData.Driver.Address.GetFormattedAddress()</strong>
+                                            }
+                                            else
+                                            {
+                                                <strong class="text-muted">-</strong>
+                                            }
+                                        </div>
+                                    </div>
+                                    @* Inline Injury if Driver is Claimant *@
+                                    @if (claimantIsDriver && HasInjury && InjuryData != null)
+                                    {
+                                        <div class="border-top pt-3 mt-3">
+                                            <h6 class="text-danger mb-2"><i class="bi bi-bandaid me-1"></i>Injury Details</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Nature of Injury</small>
+                                                    <strong>@InjuryData.InjuryType</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Severity</small>
+                                                    <strong>@InjuryData.GetSeverityDescription()</strong>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Fatality</small>
+                                                    <span class="badge @(InjuryData.IsFatality ? "bg-dark" : "bg-secondary")">
+                                                        @(InjuryData.IsFatality ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <small class="text-muted d-block">Hospitalized</small>
+                                                    <span class="badge @(InjuryData.WasTakenToHospital ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(InjuryData.WasTakenToHospital ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <small class="text-muted d-block">Attorney</small>
+                                                    <span class="badge @(HasAttorney ? "bg-warning text-dark" : "bg-secondary")">
+                                                        @(HasAttorney ? "Yes" : "No")
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(InjuryData.InjuryDescription))
+                                            {
+                                                <div class="row g-3 mt-2">
+                                                    <div class="col-12">
+                                                        <small class="text-muted d-block">Injury Description</small>
+                                                        <div class="border rounded p-2 bg-light">@InjuryData.InjuryDescription</div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* Vehicle Information *@
+                        @if (ThirdPartyData?.Vehicle != null)
+                        {
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-car-front me-2"></i>Vehicle Information</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">VIN</small>
+                                            <strong class="font-monospace">@ThirdPartyData.Vehicle.Vin</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Year / Make / Model</small>
+                                            <strong>@ThirdPartyData.Vehicle.Year @ThirdPartyData.Vehicle.Make @ThirdPartyData.Vehicle.Model</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">License Plate</small>
+                                            <strong>@ThirdPartyData.Vehicle.PlateNumber</strong>
+                                            @if (!string.IsNullOrEmpty(ThirdPartyData.Vehicle.PlateState))
+                                            {
+                                                <span class="badge bg-secondary ms-1">@ThirdPartyData.Vehicle.PlateState</span>
+                                            }
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Damaged / Drivable</small>
+                                            <span class="badge @(ThirdPartyData.Vehicle.IsDamaged ? "bg-danger" : "bg-success") me-1">
+                                                @(ThirdPartyData.Vehicle.IsDamaged ? "Damaged" : "Not Damaged")
+                                            </span>
+                                            <span class="badge @(ThirdPartyData.Vehicle.IsDrivable ? "bg-success" : "bg-danger")">
+                                                @(ThirdPartyData.Vehicle.IsDrivable ? "Drivable" : "Not Drivable")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @* Insurance Information *@
+                        <div class="card mb-3 border-info">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Insurance Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Insurance Carrier</small>
+                                        <strong>@(string.IsNullOrEmpty(ThirdPartyData?.InsuranceCarrier) ? "-" : ThirdPartyData.InsuranceCarrier)</strong>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Policy Number</small>
+                                        <strong>@(string.IsNullOrEmpty(ThirdPartyData?.InsurancePolicyNumber) ? "-" : ThirdPartyData.InsurancePolicyNumber)</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Attorney Information *@
+                        @if (HasAttorney && AttorneyData != null)
+                        {
+                            <div class="card mb-3 border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0"><i class="bi bi-briefcase me-2"></i>Attorney Information</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Attorney Name</small>
+                                            <strong>@AttorneyData.Name</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Firm Name</small>
+                                            <strong>@AttorneyData.FirmName</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Phone</small>
+                                            <strong>@AttorneyData.PhoneNumber</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>@AttorneyData.Email</strong>
+                                        </div>
+                                    </div>
+                                    @if (AttorneyData.Address != null && AttorneyData.Address.HasAnyAddress)
+                                    {
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                <small class="text-muted d-block">Address</small>
+                                                <strong>@AttorneyData.Address.GetFormattedAddress()</strong>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @* ============================================================ *@
+                        @* NON-VEHICLE TYPES - Single unified section with inline injury *@
+                        @* ============================================================ *@
+                        <div class="card mb-3 @(HasInjury ? "border-primary" : "")">
+                            <div class="card-header @(HasInjury ? "bg-primary text-white" : "bg-light")">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-person-fill me-2"></i>@Party.Name
+                                    </h6>
+                                    <div>
+                                        <span class="badge @(HasInjury ? "bg-light text-info" : "bg-info")">@ThirdPartyData?.Type</span>
+                                        @if (HasInjury)
+                                        {
+                                            <span class="badge bg-light text-primary ms-1">Claimant</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Name</small>
+                                        <strong>@Party.Name</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Phone</small>
+                                        <strong>@Party.PhoneNumber</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Email</small>
+                                        <strong>@(string.IsNullOrEmpty(Party.Email) ? "-" : Party.Email)</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Injured</small>
+                                        <span class="badge @(HasInjury ? "bg-danger" : "bg-success")">
+                                            @(HasInjury ? "Yes" : "No")
+                                        </span>
+                                    </div>
+                                </div>
+                                @if (Party.Address != null && Party.Address.HasAnyAddress)
+                                {
+                                    <div class="row g-3 mt-2">
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">Address</small>
+                                            <strong>@Party.Address.GetFormattedAddress()</strong>
+                                        </div>
+                                    </div>
+                                }
+                                
+                                @* Inline Injury Details for non-vehicle types *@
+                                @if (HasInjury && InjuryData != null)
+                                {
+                                    <div class="border-top pt-3 mt-3">
+                                        <h6 class="text-danger mb-2"><i class="bi bi-bandaid me-1"></i>Injury Details</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <small class="text-muted d-block">Nature of Injury</small>
+                                                <strong>@InjuryData.InjuryType</strong>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <small class="text-muted d-block">Severity</small>
+                                                <strong>@InjuryData.GetSeverityDescription()</strong>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <small class="text-muted d-block">Fatality</small>
+                                                <span class="badge @(InjuryData.IsFatality ? "bg-dark" : "bg-secondary")">
+                                                    @(InjuryData.IsFatality ? "Yes" : "No")
+                                                </span>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <small class="text-muted d-block">Hospitalized</small>
+                                                <span class="badge @(InjuryData.WasTakenToHospital ? "bg-warning text-dark" : "bg-secondary")">
+                                                    @(InjuryData.WasTakenToHospital ? "Yes" : "No")
+                                                </span>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <small class="text-muted d-block">Attorney</small>
+                                                <span class="badge @(HasAttorney ? "bg-warning text-dark" : "bg-secondary")">
+                                                    @(HasAttorney ? "Yes" : "No")
+                                                </span>
+                                            </div>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(InjuryData.InjuryDescription))
+                                        {
+                                            <div class="row g-3 mt-2">
+                                                <div class="col-12">
+                                                    <small class="text-muted d-block">Injury Description</small>
+                                                    <div class="border rounded p-2 bg-light">@InjuryData.InjuryDescription</div>
+                                                </div>
+                                            </div>
+                                        }
+                                        @if (InjuryData.WasTakenToHospital && !string.IsNullOrEmpty(InjuryData.HospitalName))
+                                        {
+                                            <div class="row g-3 mt-2">
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Hospital Name</small>
+                                                    <strong>@InjuryData.HospitalName</strong>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Hospital Address</small>
+                                                    <strong>
+                                                        @InjuryData.HospitalStreetAddress
+                                                        @if (!string.IsNullOrEmpty(InjuryData.HospitalCity))
+                                                        {
+                                                            <span>, @InjuryData.HospitalCity, @InjuryData.HospitalState @InjuryData.HospitalZipCode</span>
+                                                        }
+                                                    </strong>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <small class="text-muted d-block">Treating Physician</small>
+                                                    <strong>@(string.IsNullOrEmpty(InjuryData.TreatingPhysician) ? "-" : InjuryData.TreatingPhysician)</strong>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        
+                        @* Attorney Information for non-vehicle types *@
+                        @if (HasAttorney && AttorneyData != null)
+                        {
+                            <div class="card mb-3 border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0"><i class="bi bi-briefcase me-2"></i>Attorney Information</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Attorney Name</small>
+                                            <strong>@AttorneyData.Name</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Firm Name</small>
+                                            <strong>@AttorneyData.FirmName</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Phone</small>
+                                            <strong>@AttorneyData.PhoneNumber</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>@AttorneyData.Email</strong>
+                                        </div>
+                                    </div>
+                                    @if (AttorneyData.Address != null && AttorneyData.Address.HasAnyAddress)
+                                    {
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                <small class="text-muted d-block">Address</small>
+                                                <strong>@AttorneyData.Address.GetFormattedAddress()</strong>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>No party information available.
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (AllowEdit)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="OnEditClick">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
+                }
+                <button type="button" class="btn btn-secondary" @onclick="Close">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnEdit { get; set; }
+
+    [Parameter]
+    public bool AllowEdit { get; set; } = true;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    // Internal state
+    private string PartyType { get; set; } = "";
+    private IPartyInfo? Party { get; set; }
+    private DriverInfo? DriverData { get; set; }
+    private InsuredPassenger? PassengerData { get; set; }
+    private ThirdParty? ThirdPartyData { get; set; }
+    private Injury? InjuryData { get; set; }
+    private AttorneyInfo? AttorneyData { get; set; }
+    private bool HasInjury { get; set; }
+    private bool HasAttorney { get; set; }
+
+    // Interface for common party properties
+    private interface IPartyInfo
+    {
+        string Name { get; }
+        string PhoneNumber { get; }
+        string Email { get; }
+        string FeinSsNumber { get; }
+        Address Address { get; }
+    }
+
+    // Wrapper classes to implement the interface
+    private class DriverPartyInfo : IPartyInfo
+    {
+        private readonly DriverInfo _driver;
+        public DriverPartyInfo(DriverInfo driver) => _driver = driver;
+        public string Name => _driver.Name;
+        public string PhoneNumber => _driver.PhoneNumber;
+        public string Email => _driver.Email;
+        public string FeinSsNumber => _driver.FeinSsNumber;
+        public Address Address => _driver.Address;
+    }
+
+    private class PassengerPartyInfo : IPartyInfo
+    {
+        private readonly InsuredPassenger _passenger;
+        public PassengerPartyInfo(InsuredPassenger passenger) => _passenger = passenger;
+        public string Name => _passenger.Name;
+        public string PhoneNumber => _passenger.PhoneNumber;
+        public string Email => _passenger.Email;
+        public string FeinSsNumber => _passenger.FeinSsNumber;
+        public Address Address => _passenger.Address;
+    }
+
+    private class ThirdPartyPartyInfo : IPartyInfo
+    {
+        private readonly ThirdParty _thirdParty;
+        public ThirdPartyPartyInfo(ThirdParty thirdParty) => _thirdParty = thirdParty;
+        public string Name => _thirdParty.Name;
+        public string PhoneNumber => _thirdParty.PhoneNumber ?? "";
+        public string Email => _thirdParty.Email ?? "";
+        public string FeinSsNumber => _thirdParty.FeinSsNumber ?? "";
+        public Address Address => _thirdParty.Address;
+    }
+
+    public async Task ShowDriverAsync(DriverInfo driver, Injury? injury = null, AttorneyInfo? attorney = null)
+    {
+        PartyType = "Driver";
+        DriverData = driver;
+        Party = new DriverPartyInfo(driver);
+        InjuryData = injury;
+        AttorneyData = attorney;
+        HasInjury = injury != null;
+        HasAttorney = attorney != null && !string.IsNullOrEmpty(attorney.Name);
+        await JS.InvokeVoidAsync("ShowModal", "partyDetailModal");
+    }
+
+    public async Task ShowPassengerAsync(InsuredPassenger passenger)
+    {
+        PartyType = "Passenger";
+        PassengerData = passenger;
+        Party = new PassengerPartyInfo(passenger);
+        InjuryData = passenger.InjuryInfo;
+        AttorneyData = passenger.AttorneyInfo;
+        HasInjury = passenger.WasInjured;
+        HasAttorney = passenger.HasAttorney;
+        await JS.InvokeVoidAsync("ShowModal", "partyDetailModal");
+    }
+
+    public async Task ShowThirdPartyAsync(ThirdParty thirdParty)
+    {
+        PartyType = "ThirdParty";
+        ThirdPartyData = thirdParty;
+        Party = new ThirdPartyPartyInfo(thirdParty);
+        InjuryData = thirdParty.InjuryInfo;
+        AttorneyData = thirdParty.AttorneyInfo;
+        HasInjury = thirdParty.WasInjured;
+        HasAttorney = thirdParty.HasAttorney;
+        await JS.InvokeVoidAsync("ShowModal", "partyDetailModal");
+    }
+
+    private async Task Close()
+    {
+        await JS.InvokeVoidAsync("HideModal", "partyDetailModal");
+    }
+
+    private async Task OnEditClick()
+    {
+        await Close();
+        await OnEdit.InvokeAsync();
+    }
+
+    private string GetModalTitle() => PartyType switch
+    {
+        "Driver" => $"Driver Details - {Party?.Name}",
+        "Passenger" => $"Passenger Details - {Party?.Name}",
+        "ThirdParty" => $"Third Party Details - {Party?.Name}",
+        _ => "Party Details"
+    };
+
+    private string GetPartyIcon() => PartyType switch
+    {
+        "Driver" => "bi-person-badge",
+        "Passenger" => "bi-person",
+        "ThirdParty" => "bi-people",
+        _ => "bi-person"
+    };
+
+    private string GetHeaderClass() => PartyType switch
+    {
+        "Driver" => "bg-primary text-white",
+        "Passenger" => "bg-info text-white",
+        "ThirdParty" => "bg-secondary text-white",
+        _ => "bg-light"
+    };
+}

@@ -1,0 +1,84 @@
+FNOL (First Notice of Loss)
+Claim Number: C26000010
+Report Date: 2026-01-09
+Report Time: 08:12 AM
+Reported By: [REDACTED REPORTER]
+Contact: (555) XXX-XXXX
+
+Insured / Policy Holder:
+- Name: Acme Fleet Services
+- Policy Number: ACME-2026-***
+- Contact: [REDACTED EMAIL]
+
+Incident Summary:
+- Date: 2026-01-09
+- Time: 07:34 AM
+- Location: Intersection of Main St & 5th Ave, Springfield, IL
+- Weather: Clear, dry roads
+- Description: Vehicle A (insured) was stopped at a red light when Vehicle B (third party) failed to stop and struck the insured vehicle in the rear. No fire. Airbags not deployed.
+
+Vehicles Involved:
+1) Vehicle A (Insured)
+   - UnitId: V-A-001
+   - VIN: [REDACTED - ends 4352]
+   - Year/Make/Model: 2015 Honda Accord
+   - Registered Owner: Acme Fleet Services
+   - Damage: Rear bumper crushed, trunk misaligned
+   - Assigned Claimant.Vin: (none)
+
+2) Vehicle B (Third Party)
+   - UnitId: V-B-001
+   - VIN: [REDACTED - ends 2345]
+   - Year/Make/Model: 2018 Ford F-150
+   - Registered Owner: [REDACTED]
+   - Damage: Front bumper, hood dented
+
+Third Parties / Claimants:
+- Claimant 1 (Third Party Driver)
+  - PartyType: TPD
+  - Name: [REDACTED THIRD PARTY DRIVER]
+  - Role: Driver of Vehicle B
+  - Contact: (555) XXX-XXXX
+  - Injuries: None reported
+  - Vin (if passenger assigned): N/A
+
+- Claimant 2 (Passenger)
+  - PartyType: TPP
+  - Name: [REDACTED PASSENGER]
+  - Role: Passenger in Vehicle B
+  - Contact: (555) XXX-XXXX
+  - Injuries: Complaint of neck pain; transported by ambulance to [REDACTED HOSPITAL]
+  - SelectedVehicleVin: [REDACTED - ends 2345]
+  - Persisted Claimant.Vin: [REDACTED - ends 2345]
+
+Property Damage:
+- Insured Vehicle A: Rear-end damage to bumper and trunk; estimate pending
+- Third Party Vehicle B: Front-end damage; estimate pending
+- Other property: Traffic signal pole minor scrape (reported by witness)
+
+Witnesses:
+- Maria Gonzalez, pedestrian, (555) XXX-XXXX — observed Vehicle B run the red light
+
+Medical / Injuries:
+- Passenger [REDACTED PASSENGER] — neck pain; taken to hospital for evaluation
+- No fatalities reported
+
+Police / Report:
+- Officer: Officer Kelly (#457)
+- Police Report Filed: Yes
+- Report Number: SPD-2026-*****
+
+Attachments:
+- Photo_20260109_0739.jpg (rear damage)
+- Photo_20260109_0740.jpg (front damage)
+- PoliceReport_[REDACTED].pdf
+
+Notes / Actions Taken:
+- Tow arranged for Vehicle A to Acme Fleet preferred shop
+- Third party insurance details collected from [REDACTED THIRD PARTY DRIVER]
+- Passenger [REDACTED PASSENGER] provided initial medical release form
+
+FNOL Prepared By: [REDACTED REPORTER]
+FNOL Prepared On: 2026-01-09 08:12 AM
+
+-- End of FNOL --

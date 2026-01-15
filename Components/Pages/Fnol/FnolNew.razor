@@ -1,0 +1,582 @@
+@page "/fnol/new"
+@page "/fnol/edit/{FnolNumber}"
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@using ClaimsPortal.Components.Pages.Fnol
+@using ClaimsPortal.Data
+@rendermode InteractiveServer
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="mb-1">
+                        <i class="bi bi-file-earmark-plus"></i> First Notice of Loss (FNOL)
+                    </h1>
+                    <p class="text-muted">Create a new claim by capturing loss details and party information</p>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <!-- FNOL Number Display -->
+                    <div class="bg-light border rounded px-3 py-2">
+                        <small class="text-muted d-block">FNOL Number</small>
+                        <strong class="text-primary fs-5">@CurrentFnolNumber</strong>
+                        @if (IsDraft)
+                        {
+                            <span class="badge bg-warning text-dark ms-2">Draft</span>
+                        }
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary" @onclick="SaveCurrentPageDraft" disabled="@IsSaving" title="Save Current Page">
+                            @if (IsSaving && SaveMode == "page")
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-cloud-arrow-up me-1"></i>
+                            }
+                            Save Progress
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="GoToSearch" title="Back to Search">
+                            <i class="bi bi-arrow-left"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="progress" style="height: 5px;">
+                <div class="progress-bar" role="progressbar" style="width: @(CurrentStep * 20)%;" aria-valuenow="@(CurrentStep * 20)" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="mt-2 d-flex justify-content-between">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    var stepNum = i;
+                    <button class="btn btn-link p-0 @(CurrentStep == stepNum ? "fw-bold text-primary" : "text-muted")" 
+                            @onclick="@(() => NavigateToStep(stepNum))"
+                            disabled="@(stepNum > MaxVisitedStep)">
+                        @GetStepName(stepNum)
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@SuccessMessage
+            <button type="button" class="btn-close" @onclick="@(() => SuccessMessage = null)"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>@ErrorMessage
+            <button type="button" class="btn-close" @onclick="@(() => ErrorMessage = null)"></button>
+        </div>
+    }
+
+    @switch (CurrentStep)
+    {
+        case 1:
+            <FnolStep1_LossDetails @ref="step1Component" 
+                                   OnNext="GoToStep2" 
+                                   InitialData="CurrentClaim.LossDetails"
+                                   InitialPolicyInfo="CurrentClaim.PolicyInfo" />
+            break;
+        case 2:
+            <FnolStep2_PolicyAndInsured @ref="step2Component" 
+                                        OnNext="GoToStep3" 
+                                        OnPrevious="GoToStep1"
+                                        InitialPolicyInfo="CurrentClaim.PolicyInfo"
+                                        InitialVehicle="CurrentClaim.InsuredVehicle"
+                                        InitialStatus="CurrentClaim.Status" />
+            break;
+        case 3:
+            <FnolStep3_DriverAndInjury @ref="step3Component" 
+                                       OnNext="GoToStep4" 
+                                       OnPrevious="GoToStep2"
+                                       InitialDriver="CurrentClaim.Driver"
+                                       InitialDriverInjury="CurrentClaim.DriverInjury"
+                                       InitialDriverAttorney="CurrentClaim.DriverAttorney"
+                                       InitialPassengers="CurrentClaim.Passengers" />
+            break;
+        case 4:
+            <FnolStep4_ThirdParties @ref="step4Component" 
+                                   OnNext="GoToStep5" 
+                                   OnPrevious="GoToStep3" 
+                                   HasPropertyDamage="@(CurrentClaim.LossDetails.HasPropertyDamage || (CurrentClaim.PropertyDamages != null && CurrentClaim.PropertyDamages.Count > 0))" 
+                                   StartingFeatureNumber="@GetNextFeatureNumber()"
+                                   InitialThirdParties="CurrentClaim.ThirdParties"
+                                   InitialPropertyDamages="CurrentClaim.PropertyDamages" />
+            break;
+        case 5:
+            <FnolStep5_ReviewAndSave @ref="step5Component" 
+                                    OnPrevious="GoToStep4" 
+                                    OnSave="SubmitClaim" 
+                                    ClaimData="CurrentClaim" />
+            break;
+    }
+</div>
+
+<ClaimSuccessModal @ref="successModal" 
+                   ClaimNumber="@GeneratedClaimNumber" 
+                   OnCancel="OnSuccessCancel"
+                   OnViewClaim="OnViewClaim" />
+
+@code {
+    [Parameter]
+    public string? FnolNumber { get; set; }
+
+    [Inject]
+    private IDatabaseClaimService DatabaseClaimService { get; set; } = null!;
+
+    [Inject]
+    private IDatabasePolicyService DatabasePolicyService { get; set; } = null!;
+
+    [Inject]
+    private DatabaseLookupService LookupService { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = null!;
+
+    private Claim CurrentClaim = new();
+    private int CurrentStep = 1;
+    private int MaxVisitedStep = 1;
+    private string CurrentFnolNumber = "";
+    private string GeneratedClaimNumber = "";
+    private bool IsDraft = true;
+    private bool IsSaving = false;
+    private string SaveMode = "";
+    private string? SuccessMessage;
+    private string? ErrorMessage;
+
+    private FnolStep1_LossDetails? step1Component;
+    private FnolStep2_PolicyAndInsured? step2Component;
+    private FnolStep3_DriverAndInjury? step3Component;
+    private FnolStep4_ThirdParties? step4Component;
+    private FnolStep5_ReviewAndSave? step5Component;
+    private ClaimSuccessModal? successModal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(FnolNumber))
+        {
+            // Load existing FNOL (draft or for editing)
+            await LoadExistingFnol(FnolNumber);
+        }
+        else
+        {
+            // Generate new FNOL number immediately
+            CurrentFnolNumber = await DatabaseClaimService.GenerateFnolNumberAsync();
+            CurrentClaim.ClaimNumber = CurrentFnolNumber;
+            CurrentClaim.CreatedDate = DateTime.Now;
+            IsDraft = true;
+            
+            // Save initial draft to database
+            await SaveInitialDraft();
+        }
+    }
+
+    private async Task SaveInitialDraft()
+    {
+        try
+        {
+            var fnol = new Fnol
+            {
+                FnolNumber = CurrentFnolNumber,
+                PolicyNumber = "",  // Required field - empty string for drafts
+                DateOfLoss = DateTime.Now,
+                ReportDate = DateTime.Now,
+                LossLocation = "",  // Required field - empty string for drafts
+                LossDescription = "",  // Required field - empty string for drafts
+                CreatedBy = "system_user"
+            };
+
+            await DatabaseClaimService.SaveFnolAsDraftAsync(fnol);
+            SuccessMessage = $"FNOL {CurrentFnolNumber} created. Your progress will be saved automatically.";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating initial draft: {ex.Message}");
+        }
+    }
+
+    private async Task LoadExistingFnol(string fnolNumber)
+    {
+        try
+        {
+            // Use GetClaimWithDetailsAsync to load ALL FNOL data including
+            // witnesses, authorities, vehicles, claimants, passengers, third parties, etc.
+            var claim = await DatabaseClaimService.GetClaimWithDetailsAsync(fnolNumber);
+            if (claim != null)
+            {
+                CurrentFnolNumber = fnolNumber;
+                CurrentClaim = claim;
+                CurrentClaim.ClaimNumber = fnolNumber;
+                // Diagnostic log: print number of property damages loaded for debugging
+                Console.WriteLine($"[DEBUG] Loaded claim {fnolNumber} with PropertyDamages.Count={CurrentClaim.PropertyDamages?.Count}");
+                
+                // Also get the FNOL record to check draft status
+                var fnol = await DatabaseClaimService.GetFnolByNumberAsync(fnolNumber);
+                IsDraft = fnol?.FnolStatus == 'D';
+            }
+            else
+            {
+                // FNOL not found, treat as new
+                CurrentFnolNumber = fnolNumber;
+                CurrentClaim.ClaimNumber = CurrentFnolNumber;
+                IsDraft = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading FNOL: {ex.Message}");
+            ErrorMessage = "Error loading FNOL. Please try again.";
+        }
+    }
+
+    private string GetStepName(int step) => step switch
+    {
+        1 => "Loss Details",
+        2 => "Policy & Insured",
+        3 => "Driver & Injury",
+        4 => "Third Parties",
+        5 => "Review & Save",
+        _ => ""
+    };
+
+    private int GetNextFeatureNumber()
+    {
+        return CurrentClaim.SubClaims.Count > 0 
+            ? CurrentClaim.SubClaims.Max(s => s.FeatureNumber) + 1 
+            : 1;
+    }
+
+    private void GoToSearch()
+    {
+        NavigationManager.NavigateTo("/fnol");
+    }
+
+    private async Task NavigateToStep(int targetStep)
+    {
+        // Save current step data before navigating
+        CollectCurrentStepData();
+        
+        // Only allow navigation to visited steps
+        if (targetStep <= MaxVisitedStep)
+        {
+            CurrentStep = targetStep;
+        }
+    }
+
+    private async Task GoToStep1()
+    {
+        CollectCurrentStepData();
+        CurrentStep = 1;
+    }
+
+    private async Task GoToStep2()
+    {
+        if (step1Component != null && await step1Component.ValidateAsync())
+        {
+            CurrentClaim.LossDetails = step1Component.GetLossDetails();
+            
+            // Get policy info from Step 1 (if verified there)
+            var policyFromStep1 = step1Component.GetPolicyInfo();
+            if (policyFromStep1 != null && !string.IsNullOrEmpty(policyFromStep1.PolicyNumber))
+            {
+                CurrentClaim.PolicyInfo = policyFromStep1;
+            }
+            
+            // Check if this is a CIQ/Unverified claim
+            if (step1Component.IsCiqClaim())
+            {
+                CurrentClaim.Status = "CIQ";
+            }
+            
+            await SaveCurrentPageDraft();
+            CurrentStep = 2;
+            MaxVisitedStep = Math.Max(MaxVisitedStep, 2);
+        }
+    }
+
+    private async Task GoToStep3()
+    {
+        if (step2Component != null && await step2Component.ValidateAsync())
+        {
+            CurrentClaim.PolicyInfo = step2Component.GetPolicyInfo();
+            CurrentClaim.InsuredVehicle = step2Component.GetInsuredVehicle();
+            CurrentClaim.Status = step2Component.GetClaimStatus();
+            
+            // Populate InsuredParty from PolicyInfo
+            if (CurrentClaim.PolicyInfo != null)
+            {
+                CurrentClaim.InsuredParty = new InsuredPartyInfo
+                {
+                    Name = CurrentClaim.PolicyInfo.InsuredName ?? "",
+                    DoingBusinessAs = CurrentClaim.PolicyInfo.DoingBusinessAs ?? "",
+                    PhoneNumber = CurrentClaim.PolicyInfo.PhoneNumber ?? "",
+                    Email = CurrentClaim.PolicyInfo.Email ?? "",
+                    Address = new Address
+                    {
+                        StreetAddress = CurrentClaim.PolicyInfo.Address ?? "",
+                        AddressLine2 = CurrentClaim.PolicyInfo.Address2 ?? "",
+                        City = CurrentClaim.PolicyInfo.City ?? "",
+                        State = CurrentClaim.PolicyInfo.State ?? "",
+                        ZipCode = CurrentClaim.PolicyInfo.ZipCode ?? ""
+                    }
+                    // Note: BusinessType, FeinSsNumber, LicenseNumber, LicenseState, DateOfBirth 
+                    // would need to come from the policy system if available
+                };
+            }
+            
+            await SaveCurrentPageDraft();
+            CurrentStep = 3;
+            MaxVisitedStep = Math.Max(MaxVisitedStep, 3);
+        }
+    }
+
+    private async Task GoToStep4()
+    {
+        if (step3Component != null && await step3Component.ValidateAsync())
+        {
+            CurrentClaim.Driver = step3Component.GetDriver();
+            CurrentClaim.DriverInjury = step3Component.GetDriverInjury();
+            CurrentClaim.DriverAttorney = step3Component.GetDriverAttorney();
+            CurrentClaim.Passengers = step3Component.GetPassengers();
+            
+            // Clear and rebuild sub-claims
+            CurrentClaim.SubClaims.Clear();
+            var driverSubClaims = step3Component.GetDriverSubClaims();
+            CurrentClaim.SubClaims.AddRange(driverSubClaims);
+            var passengerSubClaims = step3Component.GetPassengerSubClaims();
+            CurrentClaim.SubClaims.AddRange(passengerSubClaims);
+            
+            await SaveCurrentPageDraft();
+            CurrentStep = 4;
+            MaxVisitedStep = Math.Max(MaxVisitedStep, 4);
+        }
+    }
+
+    private async Task GoToStep5()
+    {
+        if (step4Component != null && await step4Component.ValidateAsync())
+        {
+            CurrentClaim.ThirdParties = step4Component.GetThirdParties();
+            CurrentClaim.PropertyDamages = step4Component.GetPropertyDamages();
+            var thirdPartySubClaims = step4Component.GetThirdPartySubClaims();
+            CurrentClaim.SubClaims.AddRange(thirdPartySubClaims);
+            
+            await SaveCurrentPageDraft();
+            CurrentStep = 5;
+            MaxVisitedStep = Math.Max(MaxVisitedStep, 5);
+        }
+    }
+
+    private async Task SaveCurrentPageDraft()
+    {
+        try
+        {
+            IsSaving = true;
+            SaveMode = "page";
+            ErrorMessage = null;
+
+            // Collect current step data
+            CollectCurrentStepData();
+
+            // Create a full save request to save all details including witnesses, authorities, vehicles, etc.
+            var request = new FnolSaveRequest
+            {
+                ClaimData = CurrentClaim,
+                CreatedBy = "system_user",
+                FnolNumber = CurrentFnolNumber
+            };
+
+            await DatabaseClaimService.SaveFnolDraftWithDetailsAsync(request);
+            IsDraft = true;
+            SuccessMessage = $"Progress saved for FNOL: {CurrentFnolNumber}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving draft: {ex.Message}");
+            ErrorMessage = "Error saving progress. Please try again.";
+        }
+        finally
+        {
+            IsSaving = false;
+            SaveMode = "";
+        }
+    }
+
+    private void CollectCurrentStepData()
+    {
+        switch (CurrentStep)
+        {
+            case 1:
+                if (step1Component != null)
+                {
+                    CurrentClaim.LossDetails = step1Component.GetLossDetails();
+                    // Also collect policy info from step 1
+                    var policyFromStep1 = step1Component.GetPolicyInfo();
+                    if (policyFromStep1 != null && !string.IsNullOrEmpty(policyFromStep1.PolicyNumber))
+                    {
+                        CurrentClaim.PolicyInfo = policyFromStep1;
+                    }
+                }
+                break;
+            case 2:
+                if (step2Component != null)
+                {
+                    CurrentClaim.PolicyInfo = step2Component.GetPolicyInfo();
+                    CurrentClaim.InsuredVehicle = step2Component.GetInsuredVehicle();
+                    CurrentClaim.Status = step2Component.GetClaimStatus();
+                    
+                    // Populate InsuredParty from PolicyInfo
+                    if (CurrentClaim.PolicyInfo != null)
+                    {
+                        CurrentClaim.InsuredParty = new InsuredPartyInfo
+                        {
+                            Name = CurrentClaim.PolicyInfo.InsuredName ?? "",
+                            DoingBusinessAs = CurrentClaim.PolicyInfo.DoingBusinessAs ?? "",
+                            PhoneNumber = CurrentClaim.PolicyInfo.PhoneNumber ?? "",
+                            Email = CurrentClaim.PolicyInfo.Email ?? "",
+                            Address = new Address
+                            {
+                                StreetAddress = CurrentClaim.PolicyInfo.Address ?? "",
+                                AddressLine2 = CurrentClaim.PolicyInfo.Address2 ?? "",
+                                City = CurrentClaim.PolicyInfo.City ?? "",
+                                State = CurrentClaim.PolicyInfo.State ?? "",
+                                ZipCode = CurrentClaim.PolicyInfo.ZipCode ?? ""
+                            }
+                        };
+                    }
+                }
+                break;
+            case 3:
+                if (step3Component != null)
+                {
+                    CurrentClaim.Driver = step3Component.GetDriver();
+                    CurrentClaim.DriverInjury = step3Component.GetDriverInjury();
+                    CurrentClaim.DriverAttorney = step3Component.GetDriverAttorney();
+                    CurrentClaim.Passengers = step3Component.GetPassengers();
+                }
+                break;
+            case 4:
+                if (step4Component != null)
+                {
+                    CurrentClaim.ThirdParties = step4Component.GetThirdParties();
+                    CurrentClaim.PropertyDamages = step4Component.GetPropertyDamages();
+                }
+                break;
+        }
+    }
+
+    private void CollectAllStepData()
+    {
+        // Collect from all available components
+        if (step1Component != null)
+            CurrentClaim.LossDetails = step1Component.GetLossDetails();
+        
+        if (step2Component != null)
+        {
+            CurrentClaim.PolicyInfo = step2Component.GetPolicyInfo();
+            CurrentClaim.InsuredVehicle = step2Component.GetInsuredVehicle();
+            CurrentClaim.Status = step2Component.GetClaimStatus();
+            
+            // Populate InsuredParty from PolicyInfo
+            if (CurrentClaim.PolicyInfo != null)
+            {
+                CurrentClaim.InsuredParty = new InsuredPartyInfo
+                {
+                    Name = CurrentClaim.PolicyInfo.InsuredName ?? "",
+                    DoingBusinessAs = CurrentClaim.PolicyInfo.DoingBusinessAs ?? "",
+                    PhoneNumber = CurrentClaim.PolicyInfo.PhoneNumber ?? "",
+                    Email = CurrentClaim.PolicyInfo.Email ?? "",
+                    Address = new Address
+                    {
+                        StreetAddress = CurrentClaim.PolicyInfo.Address ?? "",
+                        AddressLine2 = CurrentClaim.PolicyInfo.Address2 ?? "",
+                        City = CurrentClaim.PolicyInfo.City ?? "",
+                        State = CurrentClaim.PolicyInfo.State ?? "",
+                        ZipCode = CurrentClaim.PolicyInfo.ZipCode ?? ""
+                    }
+                };
+            }
+        }
+        
+        if (step3Component != null)
+        {
+            CurrentClaim.Driver = step3Component.GetDriver();
+            CurrentClaim.DriverInjury = step3Component.GetDriverInjury();
+            CurrentClaim.DriverAttorney = step3Component.GetDriverAttorney();
+            CurrentClaim.Passengers = step3Component.GetPassengers();
+        }
+        
+        if (step4Component != null)
+        {
+            CurrentClaim.ThirdParties = step4Component.GetThirdParties();
+            CurrentClaim.PropertyDamages = step4Component.GetPropertyDamages();
+        }
+    }
+
+    private async Task SubmitClaim()
+    {
+        if (step5Component != null && await step5Component.ValidateAsync())
+        {
+            try
+            {
+                IsSaving = true;
+                SaveMode = "submit";
+                ErrorMessage = null;
+
+                // Save complete FNOL and generate Claim Number
+                var request = new FnolSaveRequest
+                {
+                    ClaimData = CurrentClaim,
+                    CreatedBy = "system_user",
+                    FnolNumber = CurrentFnolNumber  // Pass FNOL number for update
+                };
+
+                var createdFnol = await DatabaseClaimService.SaveCompleteFnolAsync(request);
+                
+                // Set the generated Claim Number (not FNOL number)
+                GeneratedClaimNumber = createdFnol.ClaimNumber ?? CurrentFnolNumber;
+                CurrentClaim.ClaimNumber = GeneratedClaimNumber;
+                IsDraft = false;
+
+                // Show success modal with Claim Number
+                if (successModal != null)
+                    await successModal.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving FNOL: {ex.Message}");
+                ErrorMessage = $"Error creating claim: {ex.Message}";
+            }
+            finally
+            {
+                IsSaving = false;
+                SaveMode = "";
+            }
+        }
+    }
+
+    private async Task OnSuccessCancel()
+    {
+        NavigationManager.NavigateTo("/fnol");
+    }
+
+    private async Task OnViewClaim()
+    {
+        NavigationManager.NavigateTo($"/claim/{GeneratedClaimNumber}");
+    }
+}

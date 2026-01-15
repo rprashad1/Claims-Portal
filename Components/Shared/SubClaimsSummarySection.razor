@@ -1,0 +1,137 @@
+@using ClaimsPortal.Models
+@rendermode InteractiveServer
+
+<div class="card">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-layers me-2"></i>Sub-Claims / Features
+            @if (IsFullViewExpanded)
+            {
+                <span class="badge bg-info ms-2">Full View</span>
+            }
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary">@SubClaimsCount Total</span>
+            @if (!string.IsNullOrEmpty(Claim?.ClaimNumber))
+            {
+                @if (IsFullViewExpanded)
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CollapseFullView">
+                        <i class="bi bi-arrows-collapse me-1"></i>Collapse View
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="ExpandFullView">
+                        <i class="bi bi-arrows-expand me-1"></i>Open Full View
+                    </button>
+                }
+            }
+        </div>
+    </div>
+    <div class="card-body">
+        @if (SubClaimsCount == 0)
+        {
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>No sub-claims found.</strong>
+                <p class="mb-0 mt-2 small">
+                    Sub-claims are created during the FNOL process when injuries are reported or third parties are added.
+                </p>
+            </div>
+        }
+        else
+        {
+            @if (IsFullViewExpanded)
+            {
+                <!-- Full View Mode - Shows complete sub-claim management inline -->
+                <div class="fullview-container border rounded p-3 bg-white">
+                    <SubClaimFullView Claim="@Claim" OnSubClaimStatusChanged="HandleSubClaimStatusChanged" />
+                </div>
+            }
+            else
+            {
+                <!-- Compact View Mode - Tab Navigation within Sub-Claims Summary -->
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="summaryGridTab" data-bs-toggle="tab" data-bs-target="#summaryGridContent" type="button" role="tab">
+                            <i class="bi bi-table"></i> Sub-Claims Grid
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="workingTab" data-bs-toggle="tab" data-bs-target="#workingContent" type="button" role="tab">
+                            <i class="bi bi-wrench"></i> Working Sub-Claims
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Grid 1: Sub-Claims Summary Grid -->
+                    <div class="tab-pane fade show active" id="summaryGridContent" role="tabpanel">
+                        <h6 class="mb-3">Sub-Claims Summary (@SubClaimsCount features)</h6>
+                        <SubClaimsSummaryGrid SubClaims="@SubClaimsList" OnSubClaimStatusChanged="HandleSubClaimStatusChanged" />
+                    </div>
+
+                    <!-- Grid 2: Working Sub-Claims Grid -->
+                    <div class="tab-pane fade" id="workingContent" role="tabpanel">
+                        <h6 class="mb-3">Working Sub-Claims Details</h6>
+                        <WorkingSubClaimsGrid SubClaims="@SubClaimsList" />
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .fullview-container {
+        max-height: none;
+        overflow: visible;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Models.Claim? Claim { get; set; }
+    
+    [Parameter]
+    public EventCallback OnSubClaimStatusChanged { get; set; }
+    
+    // Track whether full view is expanded
+    private bool IsFullViewExpanded { get; set; } = false;
+    
+    // Computed properties for safe access
+    private int SubClaimsCount => Claim?.SubClaims?.Count ?? 0;
+    private List<SubClaim> SubClaimsList => Claim?.SubClaims ?? new List<SubClaim>();
+    
+    protected override void OnParametersSet()
+    {
+        Console.WriteLine($"[SubClaimsSummarySection] OnParametersSet");
+        Console.WriteLine($"[SubClaimsSummarySection] Claim is null: {Claim == null}");
+        Console.WriteLine($"[SubClaimsSummarySection] ClaimNumber: {Claim?.ClaimNumber ?? "null"}");
+        Console.WriteLine($"[SubClaimsSummarySection] SubClaims count: {SubClaimsCount}");
+        
+        if (SubClaimsCount > 0)
+        {
+            foreach (var sc in SubClaimsList)
+            {
+                Console.WriteLine($"[SubClaimsSummarySection]   Feature {sc.FeatureNumber}: {sc.Coverage} - {sc.ClaimantName}");
+            }
+        }
+    }
+    
+    private void ExpandFullView()
+    {
+        IsFullViewExpanded = true;
+    }
+    
+    private void CollapseFullView()
+    {
+        IsFullViewExpanded = false;
+    }
+    
+    private async Task HandleSubClaimStatusChanged()
+    {
+        await OnSubClaimStatusChanged.InvokeAsync();
+    }
+}

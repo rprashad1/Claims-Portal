@@ -1,0 +1,368 @@
+@using ClaimsPortal.Data
+@using Microsoft.EntityFrameworkCore
+@inject ClaimsPortalDbContext DbContext
+
+<div class="modal fade" id="featureCreationModal" tabindex="-1" role="dialog" aria-labelledby="featureCreationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="featureCreationModalLabel">
+                    @(CurrentStep == FeatureStep.CreateFeature ? $"Create Feature for {ClaimantName}" : "Add Another Feature?")
+                </h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (CurrentStep == FeatureStep.CreateFeature)
+                {
+                    <!-- Feature Creation Form -->
+                    <div class="alert alert-info mb-3">
+                        <strong>Claimant:</strong> @ClaimantName
+                        @if (!string.IsNullOrEmpty(ClaimType))
+                        {
+                            <span class="ms-2 badge bg-secondary">@FormatClaimType(ClaimType)</span>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Coverage Type/Limits *</label>
+                        <select class="form-select" @bind="CurrentSubClaim.Coverage">
+                            <option value="">-- Select Coverage --</option>
+                            <option value="BI">BI - 100/300</option>
+                            <option value="PD">PD - 50,000</option>
+                            <option value="PIP">PIP - 10,000</option>
+                            <option value="APIP">APIP - 150,000</option>
+                            <option value="UM">UM - 25,000</option>
+                        </select>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(CurrentSubClaim.Coverage))
+                    {
+                        <div class="alert alert-light border">
+                            <h6 class="mb-3">Reserve Setup</h6>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Expense Reserve *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" @bind="CurrentSubClaim.ExpenseReserve" 
+                                               placeholder="0.00" step="0.01" min="0" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Indemnity Reserve *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" @bind="CurrentSubClaim.IndemnityReserve" 
+                                               placeholder="0.00" step="0.01" min="0" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="mb-3">Assign Adjuster</h6>
+                            <div class="mb-3">
+                                <select class="form-select" @bind="SelectedAdjusterId" @bind:after="OnAdjusterChanged">
+                                    <option value="">-- Select Adjuster --</option>
+                                    @foreach (var adjuster in Adjusters)
+                                    {
+                                        <option value="@adjuster.EntityId">@adjuster.EntityName</option>
+                                    }
+                                </select>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(CurrentSubClaim.AssignedAdjusterName))
+                            {
+                                <div class="alert alert-success mb-0">
+                                    <strong>Summary:</strong><br />
+                                    Coverage: @CurrentSubClaim.Coverage - @GetCoverageLimits(CurrentSubClaim.Coverage)<br />
+                                    Expense Reserve: $@CurrentSubClaim.ExpenseReserve.ToString("F2")<br />
+                                    Indemnity Reserve: $@CurrentSubClaim.IndemnityReserve.ToString("F2")<br />
+                                    Assigned to: @CurrentSubClaim.AssignedAdjusterName
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else if (CurrentStep == FeatureStep.ConfirmAddAnother)
+                {
+                    <!-- Confirmation Screen -->
+                    <div class="alert alert-success mb-4">
+                        <h5 class="mb-2"><i class="bi bi-check-circle"></i> Feature Created Successfully</h5>
+                        <p class="mb-0">A new feature has been created for <strong>@ClaimantName</strong></p>
+                    </div>
+
+                    <div class="card mb-4 border-success">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Created Feature Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <small class="text-muted">Coverage</small>
+                                    <div><strong>@LastCreatedSubClaim.Coverage - @GetCoverageLimits(LastCreatedSubClaim.Coverage)</strong></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">Assigned Adjuster</small>
+                                    <div><strong>@LastCreatedSubClaim.AssignedAdjusterName</strong></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">Expense Reserve</small>
+                                    <div><strong>$@LastCreatedSubClaim.ExpenseReserve.ToString("F2")</strong></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">Indemnity Reserve</small>
+                                    <div><strong>$@LastCreatedSubClaim.IndemnityReserve.ToString("F2")</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>Would you like to create another feature for @ClaimantName?</strong>
+                        <p class="mb-0 mt-2 small">A claimant can have multiple features/sub-claims (e.g., BI and PIP for the same injury).</p>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (CurrentStep == FeatureStep.CreateFeature)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                    <button type="button" class="btn btn-success" @onclick="OnCreateFeature" disabled="@(!IsFormValid())">
+                        <i class="bi bi-check-circle"></i> Create Feature
+                    </button>
+                }
+                else if (CurrentStep == FeatureStep.ConfirmAddAnother)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="OnAddAnother">
+                        <i class="bi bi-plus-circle"></i> Yes, Add Another Feature
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="OnFinish">
+                        <i class="bi bi-check-circle"></i> No, I'm Done
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum FeatureStep
+    {
+        CreateFeature,
+        ConfirmAddAnother
+    }
+
+    [Parameter]
+    public EventCallback<ClaimsPortal.Models.SubClaim> OnFeatureCreated { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    [Parameter]
+    public EventCallback OnCreationComplete { get; set; }
+
+    [Parameter]
+    public string ClaimantName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ClaimType { get; set; } = string.Empty;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private ClaimsPortal.Models.SubClaim CurrentSubClaim = new();
+    private ClaimsPortal.Models.SubClaim LastCreatedSubClaim = new();
+    private FeatureStep CurrentStep = FeatureStep.CreateFeature;
+    private List<EntityMaster> Adjusters = new();
+    private string SelectedAdjusterId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAdjustersAsync();
+    }
+
+    private async Task LoadAdjustersAsync()
+    {
+        // Load adjusters from EntityMaster where PartyType = 'Adjuster' or VendorType = 'Adjuster'
+        Adjusters = await DbContext.EntityMasters
+            .Where(e => (e.PartyType == "Adjuster" || e.VendorType == "Adjuster") && e.EntityStatus == 'Y')
+            .OrderBy(e => e.EntityName)
+            .ToListAsync();
+
+        // If no adjusters found in database, use a fallback list for demonstration
+        if (!Adjusters.Any())
+        {
+            Adjusters = new List<EntityMaster>
+            {
+                new EntityMaster { EntityId = 1, EntityName = "Raj Patel" },
+                new EntityMaster { EntityId = 2, EntityName = "Edwin Martinez" },
+                new EntityMaster { EntityId = 3, EntityName = "Constantine George" },
+                new EntityMaster { EntityId = 4, EntityName = "Joan Williams" }
+            };
+        }
+    }
+
+    private void OnAdjusterChanged()
+    {
+        if (!string.IsNullOrEmpty(SelectedAdjusterId) && long.TryParse(SelectedAdjusterId, out long adjusterId))
+        {
+            var adjuster = Adjusters.FirstOrDefault(a => a.EntityId == adjusterId);
+            if (adjuster != null)
+            {
+                CurrentSubClaim.AssignedAdjusterId = adjusterId.ToString();
+                CurrentSubClaim.AssignedAdjusterName = adjuster.EntityName ?? "";
+            }
+        }
+        else
+        {
+            CurrentSubClaim.AssignedAdjusterId = "";
+            CurrentSubClaim.AssignedAdjusterName = "";
+        }
+    }
+
+    public async Task ShowAsync(string claimantName, string claimType = "")
+    {
+        // Load adjusters each time modal is shown
+        await LoadAdjustersAsync();
+        
+        // Update the claimant info
+        ClaimantName = claimantName;
+        ClaimType = claimType;
+        
+        // ALWAYS start at CreateFeature step when showing the modal
+        CurrentStep = FeatureStep.CreateFeature;
+        
+        // Reset the last created subclaim
+        LastCreatedSubClaim = new ClaimsPortal.Models.SubClaim();
+        
+        // Reset selected adjuster
+        SelectedAdjusterId = "";
+        
+        // Create a completely new SubClaim with fresh values
+        CurrentSubClaim = new ClaimsPortal.Models.SubClaim
+        {
+            ClaimantName = claimantName,
+            ClaimType = claimType,
+            Coverage = "",
+            CoverageLimits = "",
+            ExpenseReserve = 0,
+            IndemnityReserve = 0,
+            AssignedAdjusterId = "",
+            AssignedAdjusterName = ""
+        };
+        
+        // Force state update before showing modal
+        await InvokeAsync(StateHasChanged);
+        
+        await JS.InvokeVoidAsync("ShowModal", "featureCreationModal");
+    }
+
+    private bool IsFormValid() => 
+        !string.IsNullOrWhiteSpace(CurrentSubClaim.Coverage) &&
+        CurrentSubClaim.ExpenseReserve >= 0 &&
+        CurrentSubClaim.IndemnityReserve >= 0 &&
+        !string.IsNullOrWhiteSpace(CurrentSubClaim.AssignedAdjusterId);
+
+    private async Task OnCreateFeature()
+    {
+        if (IsFormValid())
+        {
+            // Populate feature details
+            CurrentSubClaim.CoverageLimits = GetCoverageLimits(CurrentSubClaim.Coverage);
+            CurrentSubClaim.ClaimantName = ClaimantName;
+            CurrentSubClaim.ClaimType = ClaimType;
+            
+            if (CurrentSubClaim.Id == 0)
+                CurrentSubClaim.Id = new Random().Next(10000, 99999);
+            
+            // Store a copy of the created subclaim for display in the confirmation screen
+            LastCreatedSubClaim = new ClaimsPortal.Models.SubClaim
+            {
+                Id = CurrentSubClaim.Id,
+                Coverage = CurrentSubClaim.Coverage,
+                CoverageLimits = CurrentSubClaim.CoverageLimits,
+                ExpenseReserve = CurrentSubClaim.ExpenseReserve,
+                IndemnityReserve = CurrentSubClaim.IndemnityReserve,
+                AssignedAdjusterId = CurrentSubClaim.AssignedAdjusterId,
+                AssignedAdjusterName = CurrentSubClaim.AssignedAdjusterName,
+                ClaimantName = CurrentSubClaim.ClaimantName,
+                ClaimType = CurrentSubClaim.ClaimType
+            };
+            
+            // Notify parent
+            await OnFeatureCreated.InvokeAsync(CurrentSubClaim);
+            
+            // Move to confirmation screen
+            CurrentStep = FeatureStep.ConfirmAddAnother;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnAddAnother()
+    {
+        // Reset form for next feature - keep same claimant
+        CurrentStep = FeatureStep.CreateFeature;
+        ResetForm();
+        StateHasChanged();
+    }
+
+    private async Task OnFinish()
+    {
+        // Reset state before closing
+        CurrentStep = FeatureStep.CreateFeature;
+        
+        // Close modal and notify completion
+        await OnCreationComplete.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "featureCreationModal");
+    }
+
+    private async Task OnCancel()
+    {
+        // Reset state before closing
+        CurrentStep = FeatureStep.CreateFeature;
+        
+        await OnCancelled.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "featureCreationModal");
+    }
+
+    private void ResetForm()
+    {
+        // Reset selected adjuster
+        SelectedAdjusterId = "";
+        
+        // Reset to a completely new SubClaim with only the claimant info
+        CurrentSubClaim = new ClaimsPortal.Models.SubClaim
+        {
+            ClaimantName = ClaimantName,
+            ClaimType = ClaimType,
+            Coverage = "",
+            CoverageLimits = "",
+            ExpenseReserve = 0,
+            IndemnityReserve = 0,
+            AssignedAdjusterId = "",
+            AssignedAdjusterName = ""
+        };
+    }
+
+    private string GetCoverageLimits(string? coverage) => coverage switch
+    {
+        "BI" => "100/300",
+        "PD" => "50,000",
+        "PIP" => "10,000",
+        "APIP" => "150,000",
+        "UM" => "25,000",
+        _ => string.Empty
+    };
+
+    private string FormatClaimType(string claimType) => claimType switch
+    {
+        "InsuredDriver" => "Insured Driver",
+        "InsuredPassenger" => "Insured Passenger",
+        "ThirdPartyDriver" => "Third Party Driver",
+        "ThirdPartyPassenger" => "Third Party Passenger",
+        "ThirdPartyPedestrian" => "Third Party Pedestrian",
+        "ThirdPartyBicyclist" => "Third Party Bicyclist",
+        "ThirdPartyOther" => "Third Party Other",
+        "PropertyDamage" => "Property Damage",
+        _ => claimType
+    };
+}

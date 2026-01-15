@@ -1,0 +1,241 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Data
+@using Microsoft.EntityFrameworkCore
+@inject ClaimsPortalDbContext DbContext
+
+<div class="modal fade" id="subClaimModal" tabindex="-1" role="dialog" aria-labelledby="subClaimModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="subClaimModalLabel">
+                    @(EditingSubClaim != null ? "Edit Feature" : "Create Feature for " + ClaimantName)
+                </h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(ClaimantName))
+                {
+                    <div class="alert alert-info mb-3">
+                        <strong>Claimant:</strong> @ClaimantName
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Coverage Type/Limits *</label>
+                    <select class="form-select" @bind="CurrentSubClaim.Coverage">
+                        <option value="">-- Select Coverage --</option>
+                        <option value="BI">BI - 100/300</option>
+                        <option value="PD">PD - 50,000</option>
+                        <option value="PIP">PIP - 10,000</option>
+                        <option value="APIP">APIP - 150,000</option>
+                        <option value="UM">UM - 25,000</option>
+                    </select>
+                </div>
+
+                @if (!string.IsNullOrEmpty(CurrentSubClaim.Coverage))
+                {
+                    <div class="alert alert-light border">
+                        <h6 class="mb-3">Reserve Setup</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Expense Reserve *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" @bind="CurrentSubClaim.ExpenseReserve" 
+                                           placeholder="0.00" step="0.01" min="0" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Indemnity Reserve *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" @bind="CurrentSubClaim.IndemnityReserve" 
+                                           placeholder="0.00" step="0.01" min="0" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6 class="mb-3">Assign Adjuster</h6>
+                        <div class="mb-3">
+                            <select class="form-select" @bind="SelectedAdjusterId" @bind:after="OnAdjusterChanged">
+                                <option value="">-- Select Adjuster --</option>
+                                @foreach (var adjuster in Adjusters)
+                                {
+                                    <option value="@adjuster.EntityId">@adjuster.EntityName</option>
+                                }
+                            </select>
+                            @if (!Adjusters.Any())
+                            {
+                                <div class="form-text text-warning">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    No adjusters found. Please add adjusters to the system.
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(CurrentSubClaim.AssignedAdjusterId))
+                        {
+                            <div class="alert alert-success mb-0">
+                                <strong>Summary:</strong><br />
+                                Coverage: @CurrentSubClaim.Coverage - @GetCoverageLimits(CurrentSubClaim.Coverage)<br />
+                                Expense Reserve: $@CurrentSubClaim.ExpenseReserve.ToString("F2")<br />
+                                Indemnity Reserve: $@CurrentSubClaim.IndemnityReserve.ToString("F2")<br />
+                                Assigned to: @CurrentSubClaim.AssignedAdjusterName
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-success" @onclick="OnSave" disabled="@(!IsFormValid())">
+                    <i class="bi bi-check-circle"></i>
+                    @(EditingSubClaim != null ? "Update Feature" : "Create Feature")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<Models.SubClaim> OnSubClaimAdded { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    [Parameter]
+    public string ClaimantName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ClaimType { get; set; } = string.Empty;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private Models.SubClaim CurrentSubClaim = new();
+    private Models.SubClaim? EditingSubClaim;
+    private List<EntityMaster> Adjusters = new();
+    private string SelectedAdjusterId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAdjustersAsync();
+    }
+
+    private async Task LoadAdjustersAsync()
+    {
+        // Load adjusters from EntityMaster where PartyType = 'Adjuster' or VendorType = 'Adjuster'
+        Adjusters = await DbContext.EntityMasters
+            .Where(e => (e.PartyType == "Adjuster" || e.VendorType == "Adjuster") && e.EntityStatus == 'Y')
+            .OrderBy(e => e.EntityName)
+            .ToListAsync();
+
+        // If no adjusters found in database, create some sample ones for testing
+        if (!Adjusters.Any())
+        {
+            // Use a fallback list for demonstration - in production, load from database
+            Adjusters = new List<EntityMaster>
+            {
+                new EntityMaster { EntityId = 1, EntityName = "Raj Patel" },
+                new EntityMaster { EntityId = 2, EntityName = "Edwin Martinez" },
+                new EntityMaster { EntityId = 3, EntityName = "Constantine George" },
+                new EntityMaster { EntityId = 4, EntityName = "Joan Williams" }
+            };
+        }
+    }
+
+    public async Task ShowAsync(Models.SubClaim? subClaim = null)
+    {
+        await LoadAdjustersAsync();
+        
+        EditingSubClaim = subClaim;
+        if (subClaim != null)
+        {
+            // Editing existing sub-claim - copy values
+            CurrentSubClaim = new Models.SubClaim
+            { 
+                Id = subClaim.Id,
+                Coverage = subClaim.Coverage,
+                CoverageLimits = subClaim.CoverageLimits,
+                ExpenseReserve = subClaim.ExpenseReserve,
+                IndemnityReserve = subClaim.IndemnityReserve,
+                AssignedAdjusterId = subClaim.AssignedAdjusterId,
+                AssignedAdjusterName = subClaim.AssignedAdjusterName,
+                ClaimantName = subClaim.ClaimantName,
+                ClaimType = subClaim.ClaimType
+            };
+            SelectedAdjusterId = subClaim.AssignedAdjusterId;
+        }
+        else
+        {
+            // Creating new sub-claim - reset form completely
+            // Use the current ClaimantName and ClaimType parameters
+            CurrentSubClaim = new Models.SubClaim
+            { 
+                ClaimantName = ClaimantName,
+                ClaimType = ClaimType,
+                Coverage = "",           // Clear coverage selection
+                CoverageLimits = "",     // Clear coverage limits
+                ExpenseReserve = 0,      // Reset expense reserve
+                IndemnityReserve = 0,    // Reset indemnity reserve
+                AssignedAdjusterId = "", // Clear adjuster selection
+                AssignedAdjusterName = "" // Clear adjuster name
+            };
+            SelectedAdjusterId = "";
+        }
+        await JS.InvokeVoidAsync("ShowModal", "subClaimModal");
+    }
+
+    private void OnAdjusterChanged()
+    {
+        CurrentSubClaim.AssignedAdjusterId = SelectedAdjusterId;
+        
+        // Find the adjuster name from the list
+        if (long.TryParse(SelectedAdjusterId, out var adjusterId))
+        {
+            var selectedAdjuster = Adjusters.FirstOrDefault(a => a.EntityId == adjusterId);
+            CurrentSubClaim.AssignedAdjusterName = selectedAdjuster?.EntityName ?? "";
+        }
+        else
+        {
+            CurrentSubClaim.AssignedAdjusterName = "";
+        }
+    }
+
+    private bool IsFormValid() => 
+        !string.IsNullOrWhiteSpace(CurrentSubClaim.Coverage) &&
+        CurrentSubClaim.ExpenseReserve >= 0 &&
+        CurrentSubClaim.IndemnityReserve >= 0 &&
+        !string.IsNullOrWhiteSpace(CurrentSubClaim.AssignedAdjusterId);
+
+    private async Task OnSave()
+    {
+        if (IsFormValid())
+        {
+            CurrentSubClaim.CoverageLimits = GetCoverageLimits(CurrentSubClaim.Coverage);
+            
+            if (CurrentSubClaim.Id == 0)
+                CurrentSubClaim.Id = new Random().Next(10000, 99999);
+            
+            await OnSubClaimAdded.InvokeAsync(CurrentSubClaim);
+            await JS.InvokeVoidAsync("HideModal", "subClaimModal");
+        }
+    }
+
+    private async Task OnCancel()
+    {
+        await OnCancelled.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "subClaimModal");
+    }
+
+    private string GetCoverageLimits(string coverage) => coverage switch
+    {
+        "BI" => "100/300",
+        "PD" => "50,000",
+        "PIP" => "10,000",
+        "APIP" => "150,000",
+        "UM" => "25,000",
+        _ => string.Empty
+    };
+}

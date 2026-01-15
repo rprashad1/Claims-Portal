@@ -1,0 +1,367 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+@using ClaimsPortal.Components.Modals
+@inject IVendorSearchService VendorSearchService
+@inject IJSRuntime JS
+
+<div class="injury-template-container">
+    <!-- Injury Type Dropdown -->
+    <div class="mb-3">
+        <label class="form-label">Injury Type *</label>
+        <select class="form-select" value="@InjuryInfo.InjuryType" @onchange="OnInjuryTypeChanged">
+            <option value="">-- Select Injury Type --</option>
+            @foreach (var injuryType in Injury.GetInjuryTypes())
+            {
+                <option value="@injuryType">@injuryType</option>
+            }
+        </select>
+    </div>
+
+    <!-- Severity Level Dropdown -->
+    <div class="mb-3">
+        <label class="form-label">Severity Level *</label>
+        <select class="form-select" value="@InjuryInfo.SeverityLevel" @onchange="OnSeverityLevelChanged">
+            @foreach (var level in Injury.GetSeverityLevels())
+            {
+                <option value="@level.Value">@level.Label</option>
+            }
+        </select>
+    </div>
+
+    <!-- Injury Description (Multi-line) -->
+    <div class="mb-3">
+        <label class="form-label">Injury Description *</label>
+        <textarea class="form-control" 
+                  rows="3" 
+                  value="@InjuryInfo.InjuryDescription"
+                  @onchange="OnDescriptionChanged"
+                  placeholder="Detailed description of the injury..."></textarea>
+    </div>
+
+    <!-- Fatality & Hospital Checkboxes -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="@($"isFatality_{UniqueId}")" 
+                       checked="@InjuryInfo.IsFatality"
+                       @onchange="OnFatalityChanged" />
+                <label class="form-check-label" for="@($"isFatality_{UniqueId}")">
+                    Fatality
+                </label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="@($"wasTakenToHospital_{UniqueId}")" 
+                       checked="@InjuryInfo.WasTakenToHospital"
+                       @onchange="OnHospitalChanged" />
+                <label class="form-check-label" for="@($"wasTakenToHospital_{UniqueId}")">
+                    Taken to Hospital
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hospital Information (shown only if WasTakenToHospital = true) -->
+    @if (InjuryInfo.WasTakenToHospital)
+    {
+        <div class="border-top pt-3 mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="bi bi-hospital me-2"></i>Hospital Information</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="OpenHospitalSearch">
+                    <i class="bi bi-search me-1"></i>Search Hospital
+                </button>
+            </div>
+
+            @if (SelectedHospitalEntityId.HasValue)
+            {
+                <div class="alert alert-success py-2 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small><i class="bi bi-check-circle me-1"></i>Hospital selected from Vendor Master</small>
+                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSelectedHospital">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+            
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Hospital Name</label>
+                    <div class="input-group">
+                        <input type="text" 
+                               class="form-control @(SelectedHospitalEntityId.HasValue ? "bg-light" : "")" 
+                               @bind="InjuryInfo.HospitalName" 
+                               @bind:after="CheckHospitalDuplicate"
+                               disabled="@SelectedHospitalEntityId.HasValue"
+                               placeholder="Hospital name" />
+                        @if (!SelectedHospitalEntityId.HasValue)
+                        {
+                            <button type="button" class="btn btn-outline-secondary" @onclick="OpenHospitalSearch" title="Search Hospital">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        }
+                    </div>
+                    @if (ShowDuplicateWarning && DuplicateHospitals.Count > 0)
+                    {
+                        <div class="alert alert-warning mt-2 py-2">
+                            <small>
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <strong>Similar hospital(s) found in Vendor Master:</strong>
+                            </small>
+                            <ul class="mb-0 mt-1">
+                                @foreach (var dup in DuplicateHospitals.Take(3))
+                                {
+                                    <li>
+                                        <small>
+                                            <a href="#" @onclick="@(() => SelectDuplicateHospital(dup))" @onclick:preventDefault>
+                                                @dup.Name - @dup.GetShortAddress()
+                                            </a>
+                                        </small>
+                                    </li>
+                                }
+                            </ul>
+                            <small class="text-muted d-block mt-1">
+                                Click to select, or continue typing to enter a new hospital.
+                            </small>
+                        </div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Street Address</label>
+                    <input type="text" 
+                           class="form-control @(SelectedHospitalEntityId.HasValue ? "bg-light" : "")" 
+                           @bind="InjuryInfo.HospitalStreetAddress" 
+                           disabled="@SelectedHospitalEntityId.HasValue"
+                           placeholder="Street address" />
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">City</label>
+                    <input type="text" 
+                           class="form-control @(SelectedHospitalEntityId.HasValue ? "bg-light" : "")" 
+                           @bind="InjuryInfo.HospitalCity" 
+                           disabled="@SelectedHospitalEntityId.HasValue"
+                           placeholder="City" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">State</label>
+                    <input type="text" 
+                           class="form-control @(SelectedHospitalEntityId.HasValue ? "bg-light" : "")" 
+                           @bind="InjuryInfo.HospitalState" 
+                           disabled="@SelectedHospitalEntityId.HasValue"
+                           maxlength="2"
+                           placeholder="State" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Zip Code</label>
+                    <input type="text" 
+                           class="form-control @(SelectedHospitalEntityId.HasValue ? "bg-light" : "")" 
+                           @bind="InjuryInfo.HospitalZipCode" 
+                           disabled="@SelectedHospitalEntityId.HasValue"
+                           placeholder="Zip code" />
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">Treating Physician</label>
+                    <input type="text" 
+                           class="form-control" 
+                           @bind="InjuryInfo.TreatingPhysician" 
+                           placeholder="Physician name" />
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Hospital Search Modal -->
+<HospitalSearchModal @ref="hospitalSearchModal" 
+                     ModalId="@($"hospitalSearchModal_{UniqueId}")"
+                     OnHospitalSelected="OnHospitalSelectedFromSearch"
+                     OnManualEntry="OnHospitalManualEntry"
+                     OnCancelled="OnHospitalSearchCancelled" />
+
+@code {
+    [Parameter]
+    public Injury InjuryInfo { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<Injury> InjuryInfoChanged { get; set; }
+
+    /// <summary>
+    /// Unique identifier for this instance (used for unique element IDs)
+    /// </summary>
+    [Parameter]
+    public string UniqueId { get; set; } = Guid.NewGuid().ToString("N")[..8];
+
+    private HospitalSearchModal? hospitalSearchModal;
+    private long? SelectedHospitalEntityId;
+    private bool ShowDuplicateWarning = false;
+    private List<VendorSearchResult> DuplicateHospitals = new();
+    private System.Timers.Timer? duplicateCheckTimer;
+
+    protected override void OnInitialized()
+    {
+        // Setup debounce timer for duplicate check
+        duplicateCheckTimer = new System.Timers.Timer(500);
+        duplicateCheckTimer.AutoReset = false;
+        duplicateCheckTimer.Elapsed += async (s, e) => await InvokeAsync(PerformDuplicateCheck);
+    }
+
+    private async Task OnInjuryTypeChanged(ChangeEventArgs e)
+    {
+        InjuryInfo.InjuryType = e.Value?.ToString() ?? "";
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private async Task OnSeverityLevelChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int level))
+        {
+            InjuryInfo.SeverityLevel = level;
+        }
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private async Task OnDescriptionChanged(ChangeEventArgs e)
+    {
+        InjuryInfo.InjuryDescription = e.Value?.ToString() ?? "";
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private async Task OnFatalityChanged(ChangeEventArgs e)
+    {
+        InjuryInfo.IsFatality = (bool)(e.Value ?? false);
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private async Task OnHospitalChanged(ChangeEventArgs e)
+    {
+        InjuryInfo.WasTakenToHospital = (bool)(e.Value ?? false);
+        if (!InjuryInfo.WasTakenToHospital)
+        {
+            // Clear hospital info when unchecked
+            ClearHospitalInfo();
+        }
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private async Task OpenHospitalSearch()
+    {
+        if (hospitalSearchModal != null)
+        {
+            await hospitalSearchModal.ShowAsync();
+        }
+    }
+
+    private async Task OnHospitalSelectedFromSearch(HospitalInfo hospital)
+    {
+        SelectedHospitalEntityId = hospital.EntityId;
+        InjuryInfo.HospitalName = hospital.Name;
+        InjuryInfo.HospitalStreetAddress = hospital.StreetAddress;
+        InjuryInfo.HospitalCity = hospital.City;
+        InjuryInfo.HospitalState = hospital.State;
+        InjuryInfo.HospitalZipCode = hospital.ZipCode;
+        ShowDuplicateWarning = false;
+        DuplicateHospitals.Clear();
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    private void OnHospitalManualEntry()
+    {
+        // User chose to enter manually - allow it
+        SelectedHospitalEntityId = null;
+    }
+
+    private void OnHospitalSearchCancelled()
+    {
+        // Nothing to do
+    }
+
+    private void ClearSelectedHospital()
+    {
+        SelectedHospitalEntityId = null;
+        ClearHospitalInfo();
+    }
+
+    private void ClearHospitalInfo()
+    {
+        InjuryInfo.HospitalName = "";
+        InjuryInfo.HospitalStreetAddress = "";
+        InjuryInfo.HospitalCity = "";
+        InjuryInfo.HospitalState = "";
+        InjuryInfo.HospitalZipCode = "";
+        SelectedHospitalEntityId = null;
+        ShowDuplicateWarning = false;
+        DuplicateHospitals.Clear();
+    }
+
+    private void CheckHospitalDuplicate()
+    {
+        // Debounce - reset timer
+        duplicateCheckTimer?.Stop();
+        duplicateCheckTimer?.Start();
+    }
+
+    private async Task PerformDuplicateCheck()
+    {
+        if (SelectedHospitalEntityId.HasValue)
+            return; // Already selected from vendor master
+        
+        if (string.IsNullOrWhiteSpace(InjuryInfo.HospitalName) || InjuryInfo.HospitalName.Length < 3)
+        {
+            ShowDuplicateWarning = false;
+            DuplicateHospitals.Clear();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        try
+        {
+            DuplicateHospitals = await VendorSearchService.SearchHospitalsAsync(InjuryInfo.HospitalName, 5);
+            ShowDuplicateWarning = DuplicateHospitals.Count > 0;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking duplicate hospital: {ex.Message}");
+        }
+    }
+
+    private async Task SelectDuplicateHospital(VendorSearchResult hospital)
+    {
+        SelectedHospitalEntityId = hospital.EntityId;
+        InjuryInfo.HospitalName = hospital.Name;
+        InjuryInfo.HospitalStreetAddress = hospital.StreetAddress ?? "";
+        InjuryInfo.HospitalCity = hospital.City ?? "";
+        InjuryInfo.HospitalState = hospital.State ?? "";
+        InjuryInfo.HospitalZipCode = hospital.ZipCode ?? "";
+        ShowDuplicateWarning = false;
+        DuplicateHospitals.Clear();
+        await InjuryInfoChanged.InvokeAsync(InjuryInfo);
+    }
+
+    public void Dispose()
+    {
+        duplicateCheckTimer?.Dispose();
+    }
+}
+
+<style>
+    .injury-template-container {
+        /* Component scoped styles */
+    }
+
+    .injury-template-container textarea {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        resize: vertical;
+    }
+</style>

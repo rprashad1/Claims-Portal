@@ -1,0 +1,992 @@
+@page "/vendor-master"
+@rendermode InteractiveServer
+@using ClaimsPortal.Services
+@using ClaimsPortal.Models
+@using ClaimsPortal.Data
+@inject IVendorService VendorService
+@inject DatabaseLookupService LookupService
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Vendor Master</h2>
+            <p class="text-muted">Manage all business entities and vendors</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-lg" @onclick="ShowAddModal">
+            <i class="bi bi-plus-circle"></i> Add New Vendor
+        </button>
+    </div>
+
+    <!-- Search Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="bi bi-search me-2"></i>Search Vendors</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Search by Name or FEIN</label>
+                    <input type="text" class="form-control" placeholder="Enter vendor name or FEIN number" 
+                           @bind="SearchTerm" @bind:event="oninput" @onkeypress="HandleKeyPress" />
+                    <small class="text-muted">Press Enter or click Search to find vendors</small>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Vendor Type</label>
+                    <select class="form-select" @bind="FilterVendorType">
+                        <option value="">All Types</option>
+                        @foreach (var vendorType in VendorTypes)
+                        {
+                            <option value="@vendorType.RecordDescription">@vendorType.RecordDescription</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="FilterStatus">
+                        <option value="">All</option>
+                        <option value="Active">Active</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" @onclick="PerformSearch" disabled="@IsLoading">
+                        @if (IsLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Searching...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-search me-1"></i>
+                            <span>Search</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@SuccessMessage
+            <button type="button" class="btn-close" @onclick="@(() => SuccessMessage = null)"></button>
+        </div>
+    }
+
+    <!-- Results Section -->
+    @if (!HasSearched)
+    {
+        <!-- Initial State - No search performed yet -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-building display-1 text-muted mb-3"></i>
+                <h4 class="text-muted">Welcome to Vendor Master</h4>
+                <p class="text-muted mb-4">
+                    Use the search filters above to find existing vendors, or add a new vendor.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <button type="button" class="btn btn-outline-primary" @onclick="PerformSearch">
+                        <i class="bi bi-list-ul me-2"></i>Show All Vendors
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="ShowAddModal">
+                        <i class="bi bi-plus-circle me-2"></i>Add New Vendor
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Results Table - Only shown after search -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="bi bi-list-ul me-2"></i>
+                    Vendors (@VendorResults.Count found)
+                </h6>
+                @if (VendorResults.Count > 0)
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearSearch">
+                        <i class="bi bi-x-circle me-1"></i>Clear Results
+                    </button>
+                }
+            </div>
+            <div class="card-body">
+                @if (VendorResults.Count == 0)
+                {
+                    <div class="text-center py-4">
+                        <i class="bi bi-inbox display-4 text-muted mb-3"></i>
+                        <h5 class="text-muted">No Vendors Found</h5>
+                        <p class="text-muted mb-3">
+                            @if (!string.IsNullOrEmpty(SearchTerm) || !string.IsNullOrEmpty(FilterVendorType) || !string.IsNullOrEmpty(FilterStatus))
+                            {
+                                <span>No vendors match your search criteria. Try adjusting your filters.</span>
+                            }
+                            else
+                            {
+                                <span>There are no vendors in the system yet.</span>
+                            }
+                        </p>
+                        <button type="button" class="btn btn-primary" @onclick="ShowAddModal">
+                            <i class="bi bi-plus-circle me-2"></i>Add First Vendor
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Entity</th>
+                                    <th>FEIN</th>
+                                    <th>Contact</th>
+                                    <th>Phone</th>
+                                    <th>Main Address</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var vendor in VendorResults)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@vendor.Name</strong>
+                                            @if (!string.IsNullOrEmpty(vendor.DoingBusinessAs))
+                                            {
+                                                <br /><small class="text-muted">DBA: @vendor.DoingBusinessAs</small>
+                                            }
+                                        </td>
+                                        <td><span class="badge bg-light text-dark">@GetVendorTypeDisplay(vendor.VendorType)</span></td>
+                                        <td>@(vendor.EntityType == EntityType.Business ? "Business" : "Individual")</td>
+                                        <td><code>@(vendor.FeinNumber ?? "N/A")</code></td>
+                                        <td>@(vendor.Contact?.Name ?? "—")</td>
+                                        <td>@(vendor.Contact?.BusinessPhone ?? "—")</td>
+                                        <td>
+                                            @if (vendor.Addresses != null && vendor.Addresses.Count > 0)
+                                            {
+                                                var mainAddr = vendor.Addresses.FirstOrDefault(a => a.AddressType == AddressTypeEnum.Main);
+                                                if (mainAddr != null)
+                                                {
+                                                    <small>@mainAddr.City, @mainAddr.State @mainAddr.ZipCode</small>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (vendor.Status == VendorStatus.Active)
+                                            {
+                                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-info" @onclick="@(() => ViewVendor(vendor))" title="View">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary" @onclick="@(() => EditVendor(vendor))" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                @if (vendor.Status == VendorStatus.Active)
+                                                {
+                                                    <button type="button" class="btn btn-outline-danger" @onclick="@(() => DisableVendor(vendor.Id))" title="Disable">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" class="btn btn-outline-success" @onclick="@(() => EnableVendor(vendor.Id))" title="Enable">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <!-- Header -->
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @if (IsViewMode)
+                        {
+                            <i class="bi bi-eye me-2"></i><span>View Vendor</span>
+                        }
+                        else if (CurrentVendor.Id == 0)
+                        {
+                            <i class="bi bi-plus-circle me-2"></i><span>Add New Vendor</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-pencil me-2"></i><span>Edit Vendor</span>
+                        }
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body">
+                    <!-- Modal Error Message -->
+                    @if (!string.IsNullOrEmpty(ModalErrorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i>@ModalErrorMessage
+                            <button type="button" class="btn-close" @onclick="@(() => ModalErrorMessage = null)"></button>
+                        </div>
+                    }
+
+                    <!-- BASIC INFORMATION -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Basic Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Vendor Type *</label>
+                                    <select class="form-select" @bind="CurrentVendorType" disabled="@IsViewMode">
+                                        <option value="">Select Type</option>
+                                        @foreach (var vendorType in VendorTypes)
+                                        {
+                                            <option value="@vendorType.RecordDescription">@vendorType.RecordDescription</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Entity Type *</label>
+                                    <select class="form-select" @bind="CurrentEntityType" disabled="@IsViewMode">
+                                        <option value="Individual">Individual</option>
+                                        <option value="Business">Business</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">@(CurrentEntityType == "Individual" ? "Name" : "Business Name") *</label>
+                                    <input type="text" class="form-control" @bind="CurrentVendor.Name" disabled="@IsViewMode" />
+                                </div>
+                                @if (CurrentEntityType == "Business")
+                                {
+                                    <div class="col-md-6">
+                                        <label class="form-label">Doing Business As (DBA)</label>
+                                        <input type="text" class="form-control" @bind="CurrentVendor.DoingBusinessAs" disabled="@IsViewMode" />
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">FEIN #</label>
+                                    <input type="text" class="form-control" @bind="CurrentVendor.FeinNumber" placeholder="XX-XXXXXXX" disabled="@IsViewMode" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Effective Date</label>
+                                    <input type="date" class="form-control" @bind="CurrentVendor.EffectiveDate" disabled="@IsViewMode" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Termination Date</label>
+                                    <input type="date" class="form-control" @bind="CurrentVendor.TerminationDate" disabled="@IsViewMode" />
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" @bind="CurrentStatus" disabled="@IsViewMode">
+                                        <option value="Active">Active</option>
+                                        <option value="Disabled">Disabled</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAX INFORMATION -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Tax Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" @bind="TaxInfo_W9Received" id="w9Modal" disabled="@IsViewMode" />
+                                        <label class="form-check-label" for="w9Modal">W9 Received</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" @bind="TaxInfo_SubjectTo1099" id="s1099Modal" disabled="@IsViewMode" />
+                                        <label class="form-check-label" for="s1099Modal">Subject to 1099</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" @bind="TaxInfo_BackupWithholding" id="backupModal" disabled="@IsViewMode" />
+                                        <label class="form-check-label" for="backupModal">Backup Withholding</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CONTACT INFORMATION -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Contact Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Contact Name</label>
+                                    <input type="text" class="form-control" @bind="Contact_Name" disabled="@IsViewMode" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Business Phone #</label>
+                                    <input type="tel" class="form-control" @bind="Contact_BusinessPhone" disabled="@IsViewMode" />
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Fax #</label>
+                                    <input type="tel" class="form-control" @bind="Contact_FaxNumber" disabled="@IsViewMode" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Mobile Phone #</label>
+                                    <input type="tel" class="form-control" @bind="Contact_MobilePhone" disabled="@IsViewMode" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Email ID</label>
+                                    <input type="email" class="form-control" @bind="Contact_Email" disabled="@IsViewMode" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ADDRESSES -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Addresses</h6>
+                            @if (!IsViewMode && CurrentAddresses.Count < 3)
+                            {
+                                <button type="button" class="btn btn-sm btn-light" @onclick="AddAddress">
+                                    <i class="bi bi-plus"></i> Add Address
+                                </button>
+                            }
+                        </div>
+                        <div class="card-body">
+                            @if (CurrentAddresses.Count == 0)
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>No addresses added. Click "Add Address" to add one.
+                                </div>
+                            }
+                            else
+                            {
+                                @for (int i = 0; i < CurrentAddresses.Count; i++)
+                                {
+                                    var address = CurrentAddresses[i];
+                                    var idx = i;
+                                    <div class="border rounded p-3 mb-3 bg-light">
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label">Address Type</label>
+                                                <select class="form-select form-select-sm" @bind="address.AddressTypeString" disabled="@IsViewMode">
+                                                    <option value="Main">Main</option>
+                                                    <option value="Temporary">Temporary Address</option>
+                                                    <option value="Alternate">Alternate Address</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Status</label>
+                                                <select class="form-select form-select-sm" @bind="address.StatusString" disabled="@IsViewMode">
+                                                    <option value="Active">Active</option>
+                                                    <option value="Disabled">Disabled</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                @if (!IsViewMode)
+                                                {
+                                                    <label class="form-label d-block">&nbsp;</label>
+                                                    <button type="button" class="btn btn-sm btn-danger" @onclick="@(() => RemoveAddress(idx))">
+                                                        <i class="bi bi-trash"></i> Remove
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Address 1</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="address.Street1" disabled="@IsViewMode" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Address 2</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="address.Street2" disabled="@IsViewMode" />
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">City</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="address.City" disabled="@IsViewMode" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">State</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="address.State" maxlength="2" disabled="@IsViewMode" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">ZIP</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="address.ZipCode" disabled="@IsViewMode" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <!-- PAYMENT INFORMATION -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Payment Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" @bind="Payment_ReceivesBulkPayments" id="bulkModal" disabled="@IsViewMode" />
+                                <label class="form-check-label" for="bulkModal">Receives Bulk Payments</label>
+                            </div>
+                            
+                            @if (Payment_ReceivesBulkPayments)
+                            {
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Bulk Payment Frequency</label>
+                                        <select class="form-select" @bind="Payment_Frequency" disabled="@IsViewMode">
+                                            <option value="">Select Frequency</option>
+                                            <option value="Monthly">Monthly</option>
+                                            <option value="Weekly">Weekly</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                @if (Payment_Frequency == "Monthly")
+                                {
+                                    <div>
+                                        <label class="form-label">Select Payment Dates (Multi-Select)</label>
+                                        <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                            @for (int i = 1; i <= 31; i++)
+                                            {
+                                                int day = i;
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           checked="@SelectedPaymentDates.Contains(day)"
+                                                           @onchange="@((ChangeEventArgs e) => ToggleDate(day, (bool)e.Value!))"
+                                                           id="dateModal_@day" disabled="@IsViewMode" />
+                                                    <label class="form-check-label" for="dateModal_@day">@day</label>
+                                                </div>
+                                            }
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       checked="@SelectedPaymentDates.Contains(32)"
+                                                       @onchange="@((ChangeEventArgs e) => ToggleDate(32, (bool)e.Value!))"
+                                                       id="dateModalLastDay" disabled="@IsViewMode" />
+                                                <label class="form-check-label" for="dateModalLastDay">Last Day</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                else if (Payment_Frequency == "Weekly")
+                                {
+                                    <div>
+                                        <label class="form-label">Select Payment Days (Multi-Select)</label>
+                                        <div class="border rounded p-3">
+                                            @foreach (var day in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" })
+                                            {
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           checked="@SelectedPaymentDays.Contains(day)"
+                                                           @onchange="@((ChangeEventArgs e) => ToggleDay(day, (bool)e.Value!))"
+                                                           id="dayModal_@day" disabled="@IsViewMode" />
+                                                    <label class="form-check-label" for="dayModal_@day">@day</label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer">
+                    @if (IsSaving)
+                    {
+                        <button type="button" class="btn btn-primary" disabled>
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            Saving...
+                        </button>
+                    }
+                    else if (!IsViewMode)
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="SaveVendor">
+                            <i class="bi bi-check-lg me-1"></i> Save Vendor
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                        <i class="bi bi-x-lg me-1"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // State
+    private List<Vendor> VendorResults = new();
+    private Vendor CurrentVendor = new();
+    private List<VendorAddress> CurrentAddresses = new();
+    
+    // Search/Filter
+    private string SearchTerm = "";
+    private string FilterVendorType = "";
+    private string FilterStatus = "";
+    private bool HasSearched = false;
+    
+    // Modal state
+    private bool ShowModal = false;
+    private bool IsViewMode = false;
+    private bool IsLoading = false;
+    private bool IsSaving = false;
+    
+    // Messages
+    private string? SuccessMessage;
+    private string? ModalErrorMessage;
+
+    // Form field bindings (to handle nested objects)
+    private string CurrentVendorType = "";
+    private string CurrentEntityType = "Business";
+    private string CurrentStatus = "Active";
+    
+    // Contact fields
+    private string? Contact_Name;
+    private string? Contact_BusinessPhone;
+    private string? Contact_MobilePhone;
+    private string? Contact_FaxNumber;
+    private string? Contact_Email;
+    
+    // Tax Info fields
+    private bool TaxInfo_W9Received;
+    private bool TaxInfo_SubjectTo1099;
+    private bool TaxInfo_BackupWithholding;
+    
+    // Payment fields
+    private bool Payment_ReceivesBulkPayments;
+    private string? Payment_Frequency;
+    private List<int> SelectedPaymentDates = new();
+    private List<string> SelectedPaymentDays = new();
+
+    // Vendor types from database (LookupCodes table)
+    private List<LookupCode> VendorTypes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load vendor types from database on page load
+        try
+        {
+            VendorTypes = await LookupService.GetVendorTypesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading vendor types: {ex.Message}");
+            VendorTypes = new List<LookupCode>();
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await PerformSearch();
+        }
+    }
+
+    private async Task PerformSearch()
+    {
+        try
+        {
+            IsLoading = true;
+            SuccessMessage = null;
+            
+            VendorType? vendorType = string.IsNullOrEmpty(FilterVendorType) ? null : ParseVendorType(FilterVendorType);
+            VendorStatus? status = string.IsNullOrEmpty(FilterStatus) ? null : 
+                (FilterStatus == "Active" ? VendorStatus.Active : VendorStatus.Disabled);
+            
+            VendorResults = await VendorService.SearchVendorsAsync(SearchTerm, vendorType, status);
+            HasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            // Log error but show empty results instead of error message
+            Console.WriteLine($"Search error: {ex.Message}");
+            VendorResults = new List<Vendor>();
+            HasSearched = true;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void ClearSearch()
+    {
+        SearchTerm = "";
+        FilterVendorType = "";
+        FilterStatus = "";
+        VendorResults = new List<Vendor>();
+        HasSearched = false;
+        SuccessMessage = null;
+    }
+
+    private void ShowAddModal()
+    {
+        CurrentVendor = new Vendor 
+        { 
+            Id = 0,
+            EntityType = EntityType.Business,
+            Status = VendorStatus.Active,
+            EffectiveDate = DateTime.Today,
+            Contact = new VendorContact(),
+            TaxInfo = new TaxInformation(),
+            Payment = new VendorPayment()
+        };
+        CurrentAddresses = new List<VendorAddress>();
+        
+        // Reset form fields
+        CurrentVendorType = "";
+        CurrentEntityType = "Business";
+        CurrentStatus = "Active";
+        Contact_Name = null;
+        Contact_BusinessPhone = null;
+        Contact_MobilePhone = null;
+        Contact_FaxNumber = null;
+        Contact_Email = null;
+        TaxInfo_W9Received = false;
+        TaxInfo_SubjectTo1099 = false;
+        TaxInfo_BackupWithholding = false;
+        Payment_ReceivesBulkPayments = false;
+        Payment_Frequency = null;
+        SelectedPaymentDates = new List<int>();
+        SelectedPaymentDays = new List<string>();
+        ModalErrorMessage = null;
+        
+        IsViewMode = false;
+        ShowModal = true;
+        StateHasChanged();
+    }
+
+    private void ViewVendor(Vendor vendor)
+    {
+        LoadVendorIntoForm(vendor);
+        ModalErrorMessage = null;
+        IsViewMode = true;
+        ShowModal = true;
+        StateHasChanged();
+    }
+
+    private void EditVendor(Vendor vendor)
+    {
+        LoadVendorIntoForm(vendor);
+        ModalErrorMessage = null;
+        IsViewMode = false;
+        ShowModal = true;
+        StateHasChanged();
+    }
+
+    private void LoadVendorIntoForm(Vendor vendor)
+    {
+        // Clone the vendor for editing
+        CurrentVendor = new Vendor
+        {
+            Id = vendor.Id,
+            Name = vendor.Name,
+            EntityType = vendor.EntityType,
+            VendorType = vendor.VendorType,
+            DoingBusinessAs = vendor.DoingBusinessAs,
+            FeinNumber = vendor.FeinNumber,
+            EffectiveDate = vendor.EffectiveDate,
+            TerminationDate = vendor.TerminationDate,
+            Status = vendor.Status,
+            CreatedDate = vendor.CreatedDate,
+            LastUpdatedDate = vendor.LastUpdatedDate
+        };
+        
+        // Load form fields
+        CurrentVendorType = GetVendorTypeDisplay(vendor.VendorType);
+        CurrentEntityType = vendor.EntityType == EntityType.Business ? "Business" : "Individual";
+        CurrentStatus = vendor.Status == VendorStatus.Active ? "Active" : "Disabled";
+        
+        // Contact
+        Contact_Name = vendor.Contact?.Name;
+        Contact_BusinessPhone = vendor.Contact?.BusinessPhone;
+        Contact_MobilePhone = vendor.Contact?.MobilePhone;
+        Contact_FaxNumber = vendor.Contact?.FaxNumber;
+        Contact_Email = vendor.Contact?.Email;
+        
+        // Tax Info
+        TaxInfo_W9Received = vendor.TaxInfo?.W9Received ?? false;
+        TaxInfo_SubjectTo1099 = vendor.TaxInfo?.SubjectTo1099 ?? false;
+        TaxInfo_BackupWithholding = vendor.TaxInfo?.BackupWithholding ?? false;
+        
+        // Payment
+        Payment_ReceivesBulkPayments = vendor.Payment?.ReceivesBulkPayments ?? false;
+        Payment_Frequency = vendor.Payment?.Frequency == PaymentFrequency.Monthly ? "Monthly" :
+                            vendor.Payment?.Frequency == PaymentFrequency.Weekly ? "Weekly" : null;
+        SelectedPaymentDates = vendor.Payment?.SelectedDates?.ToList() ?? new List<int>();
+        SelectedPaymentDays = vendor.Payment?.SelectedDays?.Select(d => d.ToString()).ToList() ?? new List<string>();
+        
+        // Addresses - create editable copies
+        CurrentAddresses = vendor.Addresses?.Select(a => new VendorAddress
+        {
+            Id = a.Id,
+            VendorId = a.VendorId,
+            AddressType = a.AddressType,
+            Street1 = a.Street1,
+            Street2 = a.Street2,
+            City = a.City,
+            State = a.State,
+            ZipCode = a.ZipCode,
+            Country = a.Country,
+            Status = a.Status
+        }).ToList() ?? new List<VendorAddress>();
+    }
+
+    private async Task DisableVendor(int vendorId)
+    {
+        try
+        {
+            var success = await VendorService.DisableVendorAsync(vendorId);
+            if (success)
+            {
+                SuccessMessage = "Vendor disabled successfully.";
+                await PerformSearch();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error disabling vendor: {ex.Message}");
+        }
+    }
+
+    private async Task EnableVendor(int vendorId)
+    {
+        try
+        {
+            var success = await VendorService.EnableVendorAsync(vendorId);
+            if (success)
+            {
+                SuccessMessage = "Vendor enabled successfully.";
+                await PerformSearch();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error enabling vendor: {ex.Message}");
+        }
+    }
+
+    private async Task SaveVendor()
+    {
+        try
+        {
+            IsSaving = true;
+            ModalErrorMessage = null;
+            
+            // Build vendor from form fields
+            CurrentVendor.EntityType = CurrentEntityType == "Business" ? EntityType.Business : EntityType.Individual;
+            CurrentVendor.VendorType = ParseVendorType(CurrentVendorType);
+            CurrentVendor.Status = CurrentStatus == "Active" ? VendorStatus.Active : VendorStatus.Disabled;
+            
+            // Contact
+            CurrentVendor.Contact = new VendorContact
+            {
+                Name = Contact_Name,
+                BusinessPhone = Contact_BusinessPhone,
+                MobilePhone = Contact_MobilePhone,
+                FaxNumber = Contact_FaxNumber,
+                Email = Contact_Email
+            };
+            
+            // Tax Info
+            CurrentVendor.TaxInfo = new TaxInformation
+            {
+                W9Received = TaxInfo_W9Received,
+                SubjectTo1099 = TaxInfo_SubjectTo1099,
+                BackupWithholding = TaxInfo_BackupWithholding
+            };
+            
+            // Payment
+            CurrentVendor.Payment = new VendorPayment
+            {
+                ReceivesBulkPayments = Payment_ReceivesBulkPayments,
+                Frequency = Payment_Frequency == "Monthly" ? PaymentFrequency.Monthly :
+                           Payment_Frequency == "Weekly" ? PaymentFrequency.Weekly : null,
+                SelectedDates = SelectedPaymentDates,
+                SelectedDays = SelectedPaymentDays.Select(d => Enum.Parse<DayOfWeek>(d)).ToList()
+            };
+            
+            // Addresses
+            CurrentVendor.Addresses = CurrentAddresses;
+            
+            // Validate
+            var (isValid, errors) = await VendorService.ValidateVendorAsync(CurrentVendor);
+            if (!isValid)
+            {
+                ModalErrorMessage = string.Join(", ", errors);
+                return;
+            }
+            
+            if (CurrentVendor.Id == 0)
+            {
+                // Create new vendor
+                await VendorService.CreateVendorAsync(CurrentVendor);
+                SuccessMessage = "Vendor created successfully.";
+            }
+            else
+            {
+                // Update existing vendor
+                await VendorService.UpdateVendorAsync(CurrentVendor);
+                SuccessMessage = "Vendor updated successfully.";
+            }
+            
+            // Refresh results if we had searched
+            if (HasSearched)
+            {
+                await PerformSearch();
+            }
+            
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            ModalErrorMessage = $"Error saving vendor: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void CloseModal()
+    {
+        ShowModal = false;
+        ModalErrorMessage = null;
+        StateHasChanged();
+    }
+
+    private void AddAddress()
+    {
+        CurrentAddresses.Add(new VendorAddress 
+        { 
+            AddressType = CurrentAddresses.Count == 0 ? AddressTypeEnum.Main : AddressTypeEnum.Temporary, 
+            Status = AddressStatus.Active,
+            Country = "USA"
+        });
+    }
+
+    private void RemoveAddress(int index)
+    {
+        if (index >= 0 && index < CurrentAddresses.Count)
+        {
+            CurrentAddresses.RemoveAt(index);
+        }
+    }
+
+    private void ToggleDate(int date, bool isChecked)
+    {
+        if (isChecked && !SelectedPaymentDates.Contains(date))
+        {
+            SelectedPaymentDates.Add(date);
+        }
+        else if (!isChecked)
+        {
+            SelectedPaymentDates.Remove(date);
+        }
+    }
+
+    private void ToggleDay(string day, bool isChecked)
+    {
+        if (isChecked && !SelectedPaymentDays.Contains(day))
+        {
+            SelectedPaymentDays.Add(day);
+        }
+        else if (!isChecked)
+        {
+            SelectedPaymentDays.Remove(day);
+        }
+    }
+
+    private static string GetVendorTypeDisplay(VendorType vendorType)
+    {
+        return vendorType switch
+        {
+            VendorType.MedicalProvider => "Medical Providers",
+            VendorType.Hospital => "Hospitals",
+            VendorType.DefenseAttorney => "Defense Attorney",
+            VendorType.PlaintiffAttorney => "Plaintiff Attorneys",
+            VendorType.TowingService => "Towing Services",
+            VendorType.RepairShop => "Repair Shop",
+            VendorType.RentalCarCompany => "Rental Car Company",
+            VendorType.InsuranceCarrier => "Insurance Carrier",
+            VendorType.Other => "Other",
+            _ => "Other"
+        };
+    }
+
+    private static VendorType ParseVendorType(string? vendorType)
+    {
+        return vendorType switch
+        {
+            "Medical Providers" => VendorType.MedicalProvider,
+            "Hospitals" => VendorType.Hospital,
+            "Defense Attorney" => VendorType.DefenseAttorney,
+            "Plaintiff Attorneys" => VendorType.PlaintiffAttorney,
+            "Towing Services" => VendorType.TowingService,
+            "Repair Shop" => VendorType.RepairShop,
+            "Rental Car Company" => VendorType.RentalCarCompany,
+            "Insurance Carrier" => VendorType.InsuranceCarrier,
+            _ => VendorType.Other
+        };
+    }
+}

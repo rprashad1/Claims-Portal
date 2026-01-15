@@ -1,0 +1,613 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Services
+
+<div class="modal fade" id="vendorDetailModal" tabindex="-1" role="dialog" aria-labelledby="vendorDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vendorDetailModalLabel">
+                    @(Vendor?.Id == 0 ? "Add New Vendor" : "Edit Vendor")
+                </h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+                @if (Vendor != null)
+                {
+                    <!-- Basic Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Basic Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Vendor Type *</label>
+                                    <select class="form-select" @bind="Vendor.VendorType">
+                                        <option value="">-- Select Type --</option>
+                                        @foreach (var type in Enum.GetValues<VendorType>())
+                                        {
+                                            <option value="@type">@GetVendorTypeDisplay(type)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Entity Type *</label>
+                                    <select class="form-select" @bind="Vendor.EntityType">
+                                        <option value="@EntityType.Individual">Individual</option>
+                                        <option value="@EntityType.Business">Business</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        @(Vendor.EntityType == EntityType.Business ? "Company Name" : "Full Name") *
+                                    </label>
+                                    <input type="text" class="form-control" @bind="Vendor.Name" placeholder="Enter name" />
+                                </div>
+                                @if (Vendor.EntityType == EntityType.Business)
+                                {
+                                    <div class="col-md-6">
+                                        <label class="form-label">Doing Business As (DBA)</label>
+                                        <input type="text" class="form-control" @bind="Vendor.DoingBusinessAs" placeholder="DBA name" />
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">FEIN # *</label>
+                                    <input type="text" class="form-control" @bind="Vendor.FeinNumber" placeholder="XX-XXXXXXX" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Effective Date *</label>
+                                    <input type="date" class="form-control" @bind="Vendor.EffectiveDate" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Termination Date</label>
+                                    <input type="date" class="form-control" @bind="Vendor.TerminationDate" />
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" @bind="Vendor.Status">
+                                        <option value="@VendorStatus.Active">Active</option>
+                                        <option value="@VendorStatus.Disabled">Disabled</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tax and Compliance Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Tax & Compliance Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="w9Received" @bind="Vendor.W9Received" />
+                                        <label class="form-check-label" for="w9Received">
+                                            W-9 Received
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="subjectTo1099" @bind="Vendor.SubjectTo1099" />
+                                        <label class="form-check-label" for="subjectTo1099">
+                                            Subject to 1099
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="backupWithholding" @bind="Vendor.BackupWithholding" />
+                                        <label class="form-check-label" for="backupWithholding">
+                                            Backup Withholding
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Contact Information</h6>
+                        </div>
+                        <div class="card-body">
+                            @if (Vendor.Contact == null)
+                            {
+                                Vendor.Contact = new VendorContact();
+                            }
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Contact Name</label>
+                                    <input type="text" class="form-control" @bind="Vendor.Contact.Name" placeholder="Contact person name" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" @bind="Vendor.Contact.Email" placeholder="Email address" />
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Business Phone</label>
+                                    <input type="tel" class="form-control" @bind="Vendor.Contact.BusinessPhone" placeholder="(555) 000-0000" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Mobile Phone</label>
+                                    <input type="tel" class="form-control" @bind="Vendor.Contact.MobilePhone" placeholder="(555) 000-0000" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Fax Number</label>
+                                    <input type="tel" class="form-control" @bind="Vendor.Contact.FaxNumber" placeholder="(555) 000-0000" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Addresses Tab -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Addresses</h6>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="ShowAddAddressForm">
+                                <i class="bi bi-plus-circle"></i> Add Address
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            @if (Vendor.Addresses.Count == 0)
+                            {
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-info-circle"></i> No addresses added yet. Add at least one main address.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="row g-3">
+                                    @foreach (var address in Vendor.Addresses)
+                                    {
+                                        <div class="col-md-6">
+                                            <div class="card border">
+                                                <div class="card-header bg-light">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h6 class="mb-0">@GetAddressTypeDisplay(address.AddressType)</h6>
+                                                        <div>
+                                                            <button class="btn btn-sm btn-outline-primary" 
+                                                                    @onclick="@(() => EditAddress(address))">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" 
+                                                                    @onclick="@(() => DeleteAddress(address.Id))">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="card-body p-2">
+                                                    <p class="mb-1">@address.Street1</p>
+                                                    @if (!string.IsNullOrEmpty(address.Street2))
+                                                    {
+                                                        <p class="mb-1">@address.Street2</p>
+                                                    }
+                                                    <p class="mb-0">@address.GetCityStateZip()</p>
+                                                    <small class="text-muted d-block mt-2">
+                                                        @if (address.Status == AddressStatus.Active)
+                                                        {
+                                                            <span class="badge bg-success">Active</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">Disabled</span>
+                                                        }
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (ShowAddressForm)
+                            {
+                                <hr />
+                                <h6 class="mb-3">@(EditingAddressId == 0 ? "Add New Address" : "Edit Address")</h6>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Address Type *</label>
+                                        <select class="form-select" @bind="FormAddress.AddressType">
+                                            <option value="@AddressTypeEnum.Main">Main</option>
+                                            <option value="@AddressTypeEnum.Temporary">Temporary Address</option>
+                                            <option value="@AddressTypeEnum.Alternate">Alternate Address</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select" @bind="FormAddress.Status">
+                                            <option value="@AddressStatus.Active">Active</option>
+                                            <option value="@AddressStatus.Disabled">Disabled</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Street Address *</label>
+                                        <input type="text" class="form-control" @bind="FormAddress.Street1" placeholder="Street address" />
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Address Line 2</label>
+                                        <input type="text" class="form-control" @bind="FormAddress.Street2" placeholder="Apt, Suite, Unit, etc." />
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label">City *</label>
+                                        <input type="text" class="form-control" @bind="FormAddress.City" placeholder="City" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">State *</label>
+                                        <input type="text" class="form-control" @bind="FormAddress.State" maxlength="2" placeholder="State" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">ZIP Code *</label>
+                                        <input type="text" class="form-control" @bind="FormAddress.ZipCode" placeholder="ZIP code" />
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
+                                    <div class="col">
+                                        <button class="btn btn-primary w-100" @onclick="SaveAddress">
+                                            <i class="bi bi-check-circle"></i> Save Address
+                                        </button>
+                                    </div>
+                                    <div class="col">
+                                        <button class="btn btn-secondary w-100" @onclick="CancelAddressForm">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Payment Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Payment Information</h6>
+                        </div>
+                        <div class="card-body">
+                            @if (Vendor.Payment == null)
+                            {
+                                Vendor.Payment = new VendorPayment();
+                            }
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="bulkPayments" @bind="Vendor.Payment.ReceivesBulkPayments" />
+                                        <label class="form-check-label" for="bulkPayments">
+                                            Receives Bulk Payments
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (Vendor.Payment.ReceivesBulkPayments)
+                            {
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Payment Frequency *</label>
+                                        <select class="form-select" @bind="Vendor.Payment.Frequency">
+                                            <option value="">-- Select Frequency --</option>
+                                            <option value="@PaymentFrequency.Monthly">Monthly</option>
+                                            <option value="@PaymentFrequency.Weekly">Weekly</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                @if (Vendor.Payment.Frequency == PaymentFrequency.Monthly)
+                                {
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label">Payment Dates * (Select one or more)</label>
+                                            <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                                <div class="row g-2">
+                                                    @for (int i = 1; i <= 31; i++)
+                                                    {
+                                                        var date = i;
+                                                        var isChecked = Vendor.Payment.IsDateSelected(date);
+                                                        <div class="col-md-3">
+                                                            <div class="form-check">
+                                                                <input 
+                                                                    class="form-check-input" 
+                                                                    type="checkbox" 
+                                                                    id="paymentDate_@i"
+                                                                    @onchange="@((ChangeEventArgs e) => TogglePaymentDate(date, (bool?)e.Value))"
+                                                                    checked="@isChecked" />
+                                                                <label class="form-check-label" for="paymentDate_@i">
+                                                                    @(i == 31 ? "Last" : $"Day {i}")
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            @if (Vendor.Payment.SelectedDates.Any())
+                                            {
+                                                <small class="text-muted d-block mt-2">
+                                                    Selected: @string.Join(", ", Vendor.Payment.SelectedDates.OrderBy(d => d).Select(d => d == 31 ? "Last" : $"Day {d}"))
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-warning d-block mt-2">
+                                                    <i class="bi bi-exclamation-triangle"></i> Please select at least one date
+                                                </small>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                else if (Vendor.Payment.Frequency == PaymentFrequency.Weekly)
+                                {
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label">Payment Days * (Select one or more)</label>
+                                            <div class="border rounded p-3">
+                                                <div class="row g-3">
+                                                    @foreach (var day in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
+                                                    {
+                                                        var isChecked = Vendor.Payment.IsDaySelected(day);
+                                                        <div class="col-md-6">
+                                                            <div class="form-check">
+                                                                <input 
+                                                                    class="form-check-input" 
+                                                                    type="checkbox" 
+                                                                    id="paymentDay_@day"
+                                                                    @onchange="@((ChangeEventArgs e) => TogglePaymentDay(day, (bool?)e.Value))"
+                                                                    checked="@isChecked" />
+                                                                <label class="form-check-label" for="paymentDay_@day">
+                                                                    @day
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                            @if (Vendor.Payment.SelectedDays.Any())
+                                            {
+                                                <small class="text-muted d-block mt-2">
+                                                    Selected: @string.Join(", ", Vendor.Payment.SelectedDays.OrderBy(d => (int)d))
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-warning d-block mt-2">
+                                                    <i class="bi bi-exclamation-triangle"></i> Please select at least one day
+                                                </small>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveVendor" disabled="@(!IsFormValid())">
+                    <i class="bi bi-check-circle"></i> Save Vendor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Vendor? Vendor { get; set; }
+
+    [Parameter]
+    public EventCallback<Vendor> OnVendorSaved { get; set; }
+
+    [Parameter]
+    public EventCallback OnModalClosed { get; set; }
+
+    [Inject]
+    private IVendorService VendorService { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private VendorAddress FormAddress = new();
+    private bool ShowAddressForm = false;
+    private int EditingAddressId = 0;
+
+    public async Task ShowAsync(Vendor? vendor)
+    {
+        if (vendor == null)
+        {
+            Vendor = new Vendor();
+        }
+        else
+        {
+            Vendor = vendor.Copy();
+            Vendor.Addresses = new List<VendorAddress>(vendor.Addresses);
+        }
+
+        ShowAddressForm = false;
+        EditingAddressId = 0;
+
+        await JS.InvokeVoidAsync("ShowModal", "vendorDetailModal");
+    }
+
+    private bool IsFormValid()
+    {
+        return Vendor != null &&
+               !string.IsNullOrWhiteSpace(Vendor.Name) &&
+               !string.IsNullOrWhiteSpace(Vendor.FeinNumber) &&
+               Vendor.EffectiveDate.HasValue &&
+               Vendor.Addresses.Any(a => a.AddressType == AddressTypeEnum.Main) &&
+               (Vendor.Payment?.IsPaymentConfigValid() ?? true);
+    }
+
+    private void ShowAddAddressForm()
+    {
+        FormAddress = new VendorAddress { AddressType = AddressTypeEnum.Main };
+        EditingAddressId = 0;
+        ShowAddressForm = true;
+    }
+
+    private void EditAddress(VendorAddress address)
+    {
+        FormAddress = address.Copy();
+        EditingAddressId = address.Id;
+        ShowAddressForm = true;
+    }
+
+    private void SaveAddress()
+    {
+        if (!FormAddress.IsComplete)
+        {
+            // Validation error
+            return;
+        }
+
+        if (EditingAddressId == 0)
+        {
+            // Check if trying to add another main address
+            if (FormAddress.AddressType == AddressTypeEnum.Main &&
+                Vendor?.Addresses.Any(a => a.AddressType == AddressTypeEnum.Main) == true)
+            {
+                // Error: can only have one main address
+                return;
+            }
+
+            Vendor?.Addresses.Add(FormAddress);
+        }
+        else
+        {
+            var index = Vendor?.Addresses.FindIndex(a => a.Id == EditingAddressId);
+            if (index.HasValue && index.Value >= 0)
+            {
+                Vendor!.Addresses[index.Value] = FormAddress;
+            }
+        }
+
+        CancelAddressForm();
+    }
+
+    private void DeleteAddress(int addressId)
+    {
+        if (Vendor?.Addresses != null)
+        {
+            Vendor.Addresses.RemoveAll(a => a.Id == addressId);
+        }
+    }
+
+    private void CancelAddressForm()
+    {
+        ShowAddressForm = false;
+        FormAddress = new();
+        EditingAddressId = 0;
+    }
+
+    private async Task SaveVendor()
+    {
+        if (Vendor == null || !IsFormValid())
+            return;
+
+        try
+        {
+            if (Vendor.Id == 0)
+            {
+                await VendorService.CreateVendorAsync(Vendor);
+            }
+            else
+            {
+                await VendorService.UpdateVendorAsync(Vendor);
+            }
+
+            await OnVendorSaved.InvokeAsync(Vendor);
+            await JS.InvokeVoidAsync("HideModal", "vendorDetailModal");
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+            await JS.InvokeVoidAsync("alert", $"Error saving vendor: {ex.Message}");
+        }
+    }
+
+    private void TogglePaymentDate(int date, bool? isChecked)
+    {
+        if (Vendor?.Payment == null)
+            return;
+
+        if (isChecked == true)
+        {
+            Vendor.Payment.AddPaymentDate(date);
+        }
+        else
+        {
+            Vendor.Payment.RemovePaymentDate(date);
+        }
+    }
+
+    private void TogglePaymentDay(DayOfWeek day, bool? isChecked)
+    {
+        if (Vendor?.Payment == null)
+            return;
+
+        if (isChecked == true)
+        {
+            Vendor.Payment.AddPaymentDay(day);
+        }
+        else
+        {
+            Vendor.Payment.RemovePaymentDay(day);
+        }
+    }
+
+    private async Task OnCancel()
+    {
+        await OnModalClosed.InvokeAsync();
+        await JS.InvokeVoidAsync("HideModal", "vendorDetailModal");
+    }
+
+    private string GetVendorTypeDisplay(VendorType type) => type switch
+    {
+        VendorType.MedicalProvider => "Medical Provider",
+        VendorType.Hospital => "Hospital",
+        VendorType.DefenseAttorney => "Defense Attorney",
+        VendorType.PlaintiffAttorney => "Plaintiff Attorney",
+        VendorType.TowingService => "Towing Service",
+        VendorType.RepairShop => "Repair Shop",
+        VendorType.RentalCarCompany => "Rental Car Company",
+        VendorType.InsuranceCarrier => "Insurance Carrier",
+        VendorType.Other => "Other",
+        _ => "Unknown"
+    };
+
+    private string GetAddressTypeDisplay(AddressTypeEnum type) => type switch
+    {
+        AddressTypeEnum.Main => "Main Address",
+        AddressTypeEnum.Temporary => "Temporary Address",
+        AddressTypeEnum.Alternate => "Alternate Address",
+        _ => "Unknown"
+    };
+}
