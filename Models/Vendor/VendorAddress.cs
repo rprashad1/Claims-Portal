@@ -69,16 +69,16 @@ public class VendorAddress
     public DateTime? LastUpdatedDate { get; set; }
 
     // Backward compatibility aliases
-    public string? StreetAddress 
-    { 
-        get => Street1; 
-        set => Street1 = value; 
+    public string? StreetAddress
+    {
+        get => Street1;
+        set => Street1 = value;
     }
-    
-    public string? AddressLine2 
-    { 
-        get => Street2; 
-        set => Street2 = value; 
+
+    public string? AddressLine2
+    {
+        get => Street2;
+        set => Street2 = value;
     }
 
     /// <summary>

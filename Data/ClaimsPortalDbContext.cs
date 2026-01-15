@@ -24,7 +24,7 @@ namespace ClaimsPortal.Data
         public DbSet<FnolAuthority> FnolAuthorities { get; set; }
         public DbSet<SubClaimAudit> SubClaimAudits { get; set; }
         public DbSet<FnolPropertyDamage> FnolPropertyDamages { get; set; }
-        
+
         // Vendor Master Tables (separate from EntityMaster for performance)
         public DbSet<VendorMasterEntity> VendorMasters { get; set; }
         public DbSet<VendorAddressEntity> VendorAddresses { get; set; }
@@ -47,7 +47,7 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<FnolAuthority>().ToTable("FnolAuthorities");
             modelBuilder.Entity<SubClaimAudit>().ToTable("SubClaimAudits");
             modelBuilder.Entity<FnolPropertyDamage>().ToTable("FnolPropertyDamages");
-            
+
             // Vendor Master tables
             modelBuilder.Entity<VendorMasterEntity>().ToTable("VendorMaster");
             modelBuilder.Entity<VendorAddressEntity>().ToTable("VendorAddress");
@@ -66,7 +66,7 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<FnolAuthority>().HasKey(fa => fa.FnolAuthorityId);
             modelBuilder.Entity<SubClaimAudit>().HasKey(sca => sca.SubClaimAuditId);
             modelBuilder.Entity<FnolPropertyDamage>().HasKey(fpd => fpd.FnolPropertyDamageId);
-            
+
             // Vendor Master keys
             modelBuilder.Entity<VendorMasterEntity>().HasKey(v => v.VendorId);
             modelBuilder.Entity<VendorAddressEntity>().HasKey(va => va.VendorAddressId);
@@ -74,7 +74,7 @@ namespace ClaimsPortal.Data
             // Configure relationships
             // NOTE: FNOL -> Policy relationship removed because Policy comes from external system
             // The PolicyNumber in FNOL is just a reference string, not a foreign key
-            
+
             modelBuilder.Entity<Vehicle>()
                 .HasOne<Fnol>()
                 .WithMany()
@@ -94,34 +94,34 @@ namespace ClaimsPortal.Data
                 .HasOne<EntityMaster>()
                 .WithMany(e => e.Addresses)
                 .HasForeignKey(a => a.EntityId);
-                
+
             // Vendor Address relationship
             modelBuilder.Entity<VendorAddressEntity>()
                 .HasOne<VendorMasterEntity>()
                 .WithMany(v => v.Addresses)
                 .HasForeignKey(a => a.VendorId);
-                
+
             // Configure decimal precision for money fields in SubClaims
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.IndemnityPaid)
                 .HasPrecision(18, 2);
-                
+
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.IndemnityReserve)
                 .HasPrecision(18, 2);
-                
+
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.ExpensePaid)
                 .HasPrecision(18, 2);
-                
+
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.ExpenseReserve)
                 .HasPrecision(18, 2);
-                
+
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.Reimbursement)
                 .HasPrecision(18, 2);
-                
+
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.Recoveries)
                 .HasPrecision(18, 2);
@@ -169,7 +169,7 @@ namespace ClaimsPortal.Data
         public DateTime? PolicyExpirationDate { get; set; }
         public DateTime? PolicyCancelDate { get; set; }
         public char? PolicyStatus { get; set; }
-        
+
         // Insured Party Details (complete information)
         public string? InsuredName { get; set; }
         public string? InsuredPhone { get; set; }
@@ -186,7 +186,7 @@ namespace ClaimsPortal.Data
         public string? InsuredLicenseState { get; set; }
         public DateTime? InsuredDateOfBirth { get; set; }
         public int? RenewalNumber { get; set; }
-        
+
         public DateTime DateOfLoss { get; set; }
         public TimeSpan? TimeOfLoss { get; set; }
         public DateTime ReportDate { get; set; }
@@ -200,7 +200,7 @@ namespace ClaimsPortal.Data
         public bool HasInjury { get; set; }
         public bool HasPropertyDamage { get; set; }
         public bool HasOtherVehiclesInvolved { get; set; }
-        
+
         // Reported By Information
         public string? ReportedBy { get; set; }              // Insured, Agent, Other
         public string? ReportedByName { get; set; }          // Name if Other
@@ -208,7 +208,7 @@ namespace ClaimsPortal.Data
         public string? ReportedByEmail { get; set; }         // Email if Other
         public string? ReportingMethod { get; set; }         // Phone, Email, Web, Fax
         public long? ReportedByEntityId { get; set; }       // FK to EntityMaster if Other
-        
+
         public char FnolStatus { get; set; } = 'O';
         public DateTime? ClaimCreatedDate { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.Now;
@@ -243,15 +243,15 @@ namespace ClaimsPortal.Data
         public bool DidVehicleRollOver { get; set; }   // Vehicle Did Roll Over
         public string? StorageLocation { get; set; }
         public string? DamageDetails { get; set; }
-        
+
         // Entity references for vehicle owner and driver
         public long? VehicleOwnerEntityId { get; set; }  // FK to EntityMaster - Vehicle Owner
         public long? DriverEntityId { get; set; }        // FK to EntityMaster - Driver (if different from owner)
-        
+
         // Third Party Insurance Information (for TPV - Third Party Vehicles)
         public string? InsuranceCarrier { get; set; }         // Third party's insurance carrier
         public string? InsurancePolicyNumber { get; set; }    // Third party's policy number
-        
+
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
@@ -288,7 +288,7 @@ namespace ClaimsPortal.Data
         public char EntityStatus { get; set; } = 'Y';           // Status: 'Y' = Active, 'D' = Disabled
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
-        public DateTime? ModifiedDate { get; set; }       
+        public DateTime? ModifiedDate { get; set; }
         public string? ModifiedBy { get; set; } // NEW: ModifiedBy property
 
         // Navigation property for addresses
@@ -363,21 +363,21 @@ namespace ClaimsPortal.Data
         public string? ClaimantName { get; set; }
         public long? ClaimantEntityId { get; set; }
         public string? ClaimantType { get; set; }
-        
+
         /// <summary>
         /// For third-party vehicle claims: Identifies who is the injured party and claimant.
         /// Values: "Owner" or "Driver"
         /// When driver is different from owner, this field indicates which person is the claimant.
         /// </summary>
         public string? InjuredParty { get; set; }
-        
+
         public bool HasInjury { get; set; }
         public string? InjuryType { get; set; }
         public string? InjurySeverity { get; set; }
         public string? InjuryDescription { get; set; }
         public bool IsFatality { get; set; }
         public bool IsHospitalized { get; set; }
-        
+
         // Hospital Information (when IsHospitalized = true)
         public string? HospitalName { get; set; }
         public string? HospitalStreetAddress { get; set; }
@@ -385,16 +385,16 @@ namespace ClaimsPortal.Data
         public string? HospitalState { get; set; }
         public string? HospitalZipCode { get; set; }
         public string? TreatingPhysician { get; set; }
-        
+
         // Vendor references (for VendorMaster integration)
         public long? HospitalVendorId { get; set; }      // FK to VendorMaster
         public long? AttorneyVendorId { get; set; }      // FK to VendorMaster
-        
+
         public bool IsAttorneyRepresented { get; set; }
         public long? AttorneyEntityId { get; set; }      // Legacy FK to EntityMaster
         // VIN reference for claimant (used for passenger third-parties to reference which vehicle they were in)
         public string? Vin { get; set; }
-        
+
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
@@ -472,7 +472,7 @@ namespace ClaimsPortal.Data
         public string? ClaimNumber { get; set; }
         public string? PropertyType { get; set; }             // Building, Fence, Other
         public string? PropertyDescription { get; set; }       // Property description
-        
+
         // Property Owner Information
         public string? OwnerName { get; set; }
         public long? OwnerEntityId { get; set; }              // FK to EntityMaster
@@ -483,17 +483,17 @@ namespace ClaimsPortal.Data
         public string? OwnerCity { get; set; }
         public string? OwnerState { get; set; }
         public string? OwnerZipCode { get; set; }
-        
+
         // Property Location (can be different from owner address)
         public string? PropertyLocation { get; set; }
         public string? PropertyAddress { get; set; }
         public string? PropertyCity { get; set; }
         public string? PropertyState { get; set; }
         public string? PropertyZipCode { get; set; }
-        
+
         public string? DamageDescription { get; set; }
         public decimal? EstimatedDamage { get; set; }
-        
+
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
@@ -507,16 +507,16 @@ namespace ClaimsPortal.Data
     public class VendorMasterEntity
     {
         public long VendorId { get; set; }
-        
+
         // Classification
         public string VendorType { get; set; } = string.Empty;  // Hospital, Defense Attorney, Plaintiff Attorney, Police Department, etc.
         public char EntityType { get; set; } = 'B';              // 'B' = Business, 'I' = Individual
-        
+
         // Basic Info
         public string VendorName { get; set; } = string.Empty;
         public string? DoingBusinessAs { get; set; }
         public string? FEINNumber { get; set; }
-        
+
         // Contact
         public string? ContactName { get; set; }
         public string? BusinessPhone { get; set; }
@@ -524,41 +524,41 @@ namespace ClaimsPortal.Data
         public string? FaxNumber { get; set; }
         public string? Email { get; set; }
         public string? Website { get; set; }
-        
+
         // Dates
         public DateTime? EffectiveDate { get; set; }
         public DateTime? TerminationDate { get; set; }
-        
+
         // Tax
         public bool W9Received { get; set; }
         public DateTime? W9ReceivedDate { get; set; }
         public bool SubjectTo1099 { get; set; }
         public bool BackupWithholding { get; set; }
-        
+
         // Payment
         public bool ReceivesBulkPayment { get; set; }
         public string? PaymentFrequency { get; set; }
         public string? PaymentDays { get; set; }
-        
+
         // Attorney-specific
         public string? BarNumber { get; set; }
         public string? BarState { get; set; }
-        
+
         // Authority-specific
         public string? JurisdictionType { get; set; }
-        
+
         // Status
         public char VendorStatus { get; set; } = 'Y';
-        
+
         // Audit
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
         public string? ModifiedBy { get; set; }
-        
+
         // Legacy reference
         public long? LegacyEntityId { get; set; }
-        
+
         // Navigation
         public virtual ICollection<VendorAddressEntity> Addresses { get; set; } = new List<VendorAddressEntity>();
     }
@@ -570,22 +570,22 @@ namespace ClaimsPortal.Data
     {
         public long VendorAddressId { get; set; }
         public long VendorId { get; set; }
-        
+
         public char AddressType { get; set; } = 'M';  // 'M' = Main, 'A' = Alternate, 'T' = Temporary
-        
+
         public string? StreetAddress { get; set; }
         public string? AddressLine2 { get; set; }
         public string? City { get; set; }
         public string? State { get; set; }
         public string? ZipCode { get; set; }
         public string? Country { get; set; } = "USA";
-        
+
         public string? Phone { get; set; }
         public string? Fax { get; set; }
         public string? Email { get; set; }
-        
+
         public char AddressStatus { get; set; } = 'Y';
-        
+
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }

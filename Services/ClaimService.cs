@@ -43,7 +43,7 @@ public class MockClaimService : IClaimService
     public Task<Claim?> GetClaimAsync(string claimNumber)
     {
         var claim = _claims.FirstOrDefault(c => c.ClaimNumber == claimNumber);
-        
+
         // If no claim found, return null; otherwise populate SubClaims if empty
         if (claim == null)
         {

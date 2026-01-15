@@ -48,7 +48,7 @@ namespace ClaimsPortal.Services
         Task<Data.SubClaim> CreateSubClaimAsync(Data.SubClaim subClaim);
         Task<List<Data.SubClaim>> GetSubClaimsAsync(long fnolId);
         Task<Data.SubClaim> UpdateSubClaimAsync(Data.SubClaim subClaim);
-        
+
         // Sub-Claim Close/Reopen Operations
         Task CloseSubClaimWithDetailsAsync(int subClaimId, string reason, string remarks, string closedBy);
         Task ReopenSubClaimWithDetailsAsync(int subClaimId, string reason, string remarks, decimal expenseReserve, decimal indemnityReserve, string reopenedBy);
@@ -117,7 +117,7 @@ namespace ClaimsPortal.Services
         {
             // Try to find by FNOL number first
             var fnol = await _context.FNOLs.FirstOrDefaultAsync(f => f.FnolNumber == fnolNumber);
-            
+
             // If not found, try by claim number
             if (fnol == null)
             {
@@ -414,21 +414,21 @@ namespace ClaimsPortal.Services
             // Save witnesses
             foreach (var witness in claim.LossDetails.Witnesses)
             {
-                var entity = new Data.EntityMaster 
-                { 
-                    EntityType = 'I', 
-                    PartyType = "Witness", 
-                    EntityGroupCode = "Witness", 
-                    EntityName = witness.Name, 
-                    HomeBusinessPhone = witness.PhoneNumber, 
-                    Email = witness.Email, 
-                    EntityStatus = 'Y', 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                var entity = new Data.EntityMaster
+                {
+                    EntityType = 'I',
+                    PartyType = "Witness",
+                    EntityGroupCode = "Witness",
+                    EntityName = witness.Name,
+                    HomeBusinessPhone = witness.PhoneNumber,
+                    Email = witness.Email,
+                    EntityStatus = 'Y',
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
                 _context.EntityMasters.Add(entity);
                 await _context.SaveChangesAsync();
-                
+
                 // Save witness address if provided
                 if (witness.Address != null && witness.Address.HasAnyAddress)
                 {
@@ -449,13 +449,13 @@ namespace ClaimsPortal.Services
                     // Persist immediately to ensure City/State/Zip saved (addresses were reported missing)
                     await _context.SaveChangesAsync();
                 }
-                
-                _context.FnolWitnesses.Add(new Data.FnolWitness 
-                { 
-                    FnolId = fnol.FnolId, 
-                    EntityId = entity.EntityId, 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+
+                _context.FnolWitnesses.Add(new Data.FnolWitness
+                {
+                    FnolId = fnol.FnolId,
+                    EntityId = entity.EntityId,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 });
             }
 
@@ -549,11 +549,11 @@ namespace ClaimsPortal.Services
                         };
                         _context.EntityMasters.Add(vendorEntity);
                         await _context.SaveChangesAsync();
-                        
+
                         existingVendor.LegacyEntityId = vendorEntity.EntityId;
                         _context.VendorMasters.Update(existingVendor);
                         await _context.SaveChangesAsync();
-                        
+
                         entityId = vendorEntity.EntityId;
                     }
 
@@ -572,19 +572,19 @@ namespace ClaimsPortal.Services
                     continue;
                 }
 
-                var entity = new Data.EntityMaster 
-                { 
-                    EntityType = 'B', 
-                    PartyType = authority.AuthorityName, 
-                    EntityGroupCode = "Vendor", 
-                    EntityName = authority.Name, 
-                    EntityStatus = 'Y', 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                var entity = new Data.EntityMaster
+                {
+                    EntityType = 'B',
+                    PartyType = authority.AuthorityName,
+                    EntityGroupCode = "Vendor",
+                    EntityName = authority.Name,
+                    EntityStatus = 'Y',
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
                 _context.EntityMasters.Add(entity);
                 await _context.SaveChangesAsync();
-                
+
                 // Save authority address if provided
                 if (authority.Address != null && authority.Address.HasAnyAddress)
                 {
@@ -605,15 +605,15 @@ namespace ClaimsPortal.Services
                     // Persist immediately to avoid missing city/state/zip fields
                     await _context.SaveChangesAsync();
                 }
-                
-                _context.FnolAuthorities.Add(new Data.FnolAuthority 
-                { 
-                    FnolId = fnol.FnolId, 
-                    EntityId = entity.EntityId, 
-                    AuthorityType = authority.AuthorityName, 
-                    ReportNumber = authority.ReportNumber, 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+
+                _context.FnolAuthorities.Add(new Data.FnolAuthority
+                {
+                    FnolId = fnol.FnolId,
+                    EntityId = entity.EntityId,
+                    AuthorityType = authority.AuthorityName,
+                    ReportNumber = authority.ReportNumber,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 });
             }
 
@@ -709,26 +709,26 @@ namespace ClaimsPortal.Services
             long? driverEntityId = null;
             if (!string.IsNullOrEmpty(claim.Driver?.Name))
             {
-                var driverEntity = new Data.EntityMaster 
-                { 
-                    EntityType = 'I', 
-                    PartyType = "Driver", 
-                    EntityGroupCode = "Claimant", 
-                    EntityName = claim.Driver.Name, 
-                    LicenseNumber = claim.Driver.LicenseNumber, 
-                    LicenseState = claim.Driver.LicenseState, 
+                var driverEntity = new Data.EntityMaster
+                {
+                    EntityType = 'I',
+                    PartyType = "Driver",
+                    EntityGroupCode = "Claimant",
+                    EntityName = claim.Driver.Name,
+                    LicenseNumber = claim.Driver.LicenseNumber,
+                    LicenseState = claim.Driver.LicenseState,
                     HomeBusinessPhone = claim.Driver.PhoneNumber,
                     Email = claim.Driver.Email,
                     DateOfBirth = claim.Driver.DateOfBirth != default ? claim.Driver.DateOfBirth : null,
-                    EntityStatus = 'Y', 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                    EntityStatus = 'Y',
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
                 _context.EntityMasters.Add(driverEntity);
                 await _context.SaveChangesAsync();
                 driverEntityId = driverEntity.EntityId;
                 claimantEntityMap[claim.Driver.Name] = driverEntityId.Value;
-                
+
                 // Save driver address if provided
                 if (claim.Driver.Address != null && claim.Driver.Address.HasAnyAddress)
                 {
@@ -747,18 +747,18 @@ namespace ClaimsPortal.Services
                 }
 
                 // Create claimant record for driver (always, for tracking purposes)
-                var driverClaimant = new Data.Claimant 
-                { 
-                    FnolId = fnol.FnolId, 
-                    ClaimNumber = fnol.ClaimNumber, 
-                    ClaimantEntityId = driverEntityId, 
-                    ClaimantName = claim.Driver.Name, 
+                var driverClaimant = new Data.Claimant
+                {
+                    FnolId = fnol.FnolId,
+                    ClaimNumber = fnol.ClaimNumber,
+                    ClaimantEntityId = driverEntityId,
+                    ClaimantName = claim.Driver.Name,
                     ClaimantType = "IVD",
                     HasInjury = claim.DriverInjury != null && !string.IsNullOrEmpty(claim.DriverInjury.InjuryType),
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
-                
+
                 // Add driver injury details if injured
                 if (claim.DriverInjury != null && !string.IsNullOrEmpty(claim.DriverInjury.InjuryType))
                 {
@@ -774,7 +774,7 @@ namespace ClaimsPortal.Services
                     driverClaimant.HospitalZipCode = claim.DriverInjury.HospitalZipCode;
                     driverClaimant.TreatingPhysician = claim.DriverInjury.TreatingPhysician;
                 }
-                
+
                 // Add driver attorney reference if provided (store vendor FK and legacy entity FK)
                 if (driverAttorneyVendorId.HasValue || driverAttorneyEntityId.HasValue)
                 {
@@ -782,22 +782,22 @@ namespace ClaimsPortal.Services
                     if (driverAttorneyVendorId.HasValue) driverClaimant.AttorneyVendorId = driverAttorneyVendorId;
                     if (driverAttorneyEntityId.HasValue) driverClaimant.AttorneyEntityId = driverAttorneyEntityId;
                 }
-                
+
                 _context.Claimants.Add(driverClaimant);
             }
 
             // Save insured vehicle
             if (claim.InsuredVehicle != null && !string.IsNullOrEmpty(claim.InsuredVehicle.Vin))
             {
-                _context.Vehicles.Add(new Data.Vehicle 
-                { 
-                    FnolId = fnol.FnolId, 
-                    ClaimNumber = fnol.ClaimNumber, 
-                    VehicleParty = "IVD", 
-                    VIN = claim.InsuredVehicle.Vin, 
-                    Make = claim.InsuredVehicle.Make, 
-                    Model = claim.InsuredVehicle.Model, 
-                    Year = claim.InsuredVehicle.Year, 
+                _context.Vehicles.Add(new Data.Vehicle
+                {
+                    FnolId = fnol.FnolId,
+                    ClaimNumber = fnol.ClaimNumber,
+                    VehicleParty = "IVD",
+                    VIN = claim.InsuredVehicle.Vin,
+                    Make = claim.InsuredVehicle.Make,
+                    Model = claim.InsuredVehicle.Model,
+                    Year = claim.InsuredVehicle.Year,
                     PlateNumber = claim.InsuredVehicle.PlateNumber,
                     PlateState = claim.InsuredVehicle.PlateState,
                     IsVehicleDamaged = claim.InsuredVehicle.IsDamaged,
@@ -812,31 +812,31 @@ namespace ClaimsPortal.Services
                     // map UI VehicleInfo properties to database Vehicle fields
                     HeadlightsWereOn = claim.InsuredVehicle.AreHeadlightsOn,
                     AirbagDeployed = claim.InsuredVehicle.DidAirbagDeploy,
-                    DriverEntityId = driverEntityId, 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                    DriverEntityId = driverEntityId,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 });
             }
 
             // Save passengers with full details
             foreach (var passenger in claim.Passengers)
             {
-                var entity = new Data.EntityMaster 
-                { 
-                    EntityType = 'I', 
-                    PartyType = "Passenger", 
-                    EntityGroupCode = "Claimant", 
-                    EntityName = passenger.Name, 
-                    HomeBusinessPhone = passenger.PhoneNumber, 
-                    Email = passenger.Email, 
-                    EntityStatus = 'Y', 
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                var entity = new Data.EntityMaster
+                {
+                    EntityType = 'I',
+                    PartyType = "Passenger",
+                    EntityGroupCode = "Claimant",
+                    EntityName = passenger.Name,
+                    HomeBusinessPhone = passenger.PhoneNumber,
+                    Email = passenger.Email,
+                    EntityStatus = 'Y',
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
                 _context.EntityMasters.Add(entity);
                 await _context.SaveChangesAsync();
                 claimantEntityMap[passenger.Name] = entity.EntityId;
-                
+
                 // Save passenger address if provided
                 if (passenger.Address != null && passenger.Address.HasAnyAddress)
                 {
@@ -853,7 +853,7 @@ namespace ClaimsPortal.Services
                         CreatedBy = createdBy
                     });
                 }
-                
+
                 // Save passenger attorney if provided (prefer VendorMaster)
                 long? passengerAttorneyVendorId = null;
                 long? passengerAttorneyEntityId = null;
@@ -936,23 +936,23 @@ namespace ClaimsPortal.Services
                         passengerAttorneyEntityId = attorneyEntity.EntityId;
                     }
                 }
-                
+
                 // Create claimant record with full injury and attorney details
-                var passengerClaimant = new Data.Claimant 
-                { 
-                    FnolId = fnol.FnolId, 
-                    ClaimNumber = fnol.ClaimNumber, 
-                    ClaimantEntityId = entity.EntityId, 
-                    ClaimantName = passenger.Name, 
-                    ClaimantType = "IVP", 
-                    HasInjury = passenger.WasInjured, 
+                var passengerClaimant = new Data.Claimant
+                {
+                    FnolId = fnol.FnolId,
+                    ClaimNumber = fnol.ClaimNumber,
+                    ClaimantEntityId = entity.EntityId,
+                    ClaimantName = passenger.Name,
+                    ClaimantType = "IVP",
+                    HasInjury = passenger.WasInjured,
                     IsAttorneyRepresented = (passengerAttorneyVendorId.HasValue || passengerAttorneyEntityId.HasValue),
                     AttorneyVendorId = passengerAttorneyVendorId,
                     AttorneyEntityId = passengerAttorneyEntityId,
-                    CreatedDate = DateTime.Now, 
-                    CreatedBy = createdBy 
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = createdBy
                 };
-                
+
                 // Add injury details if injured
                 if (passenger.WasInjured && passenger.InjuryInfo != null)
                 {
@@ -968,7 +968,7 @@ namespace ClaimsPortal.Services
                     passengerClaimant.HospitalZipCode = passenger.InjuryInfo.HospitalZipCode;
                     passengerClaimant.TreatingPhysician = passenger.InjuryInfo.TreatingPhysician;
                 }
-                
+
                 _context.Claimants.Add(passengerClaimant);
             }
 
@@ -1056,29 +1056,29 @@ namespace ClaimsPortal.Services
                         tpAttorneyEntityId = attorneyEntity.EntityId;
                     }
                 }
-                
+
                 if (tp.Type == "Vehicle")
                 {
                     long? ownerEntityId = null;
                     if (!string.IsNullOrEmpty(tp.Name))
                     {
-                        var ownerEntity = new Data.EntityMaster 
-                        { 
-                            EntityType = 'I', 
-                            PartyType = "ThirdPartyOwner", 
-                            EntityGroupCode = "Claimant", 
-                            EntityName = tp.Name, 
+                        var ownerEntity = new Data.EntityMaster
+                        {
+                            EntityType = 'I',
+                            PartyType = "ThirdPartyOwner",
+                            EntityGroupCode = "Claimant",
+                            EntityName = tp.Name,
                             HomeBusinessPhone = tp.PhoneNumber,
                             Email = tp.Email,
-                            EntityStatus = 'Y', 
-                            CreatedDate = DateTime.Now, 
-                            CreatedBy = createdBy 
+                            EntityStatus = 'Y',
+                            CreatedDate = DateTime.Now,
+                            CreatedBy = createdBy
                         };
                         _context.EntityMasters.Add(ownerEntity);
                         await _context.SaveChangesAsync();
                         ownerEntityId = ownerEntity.EntityId;
                         claimantEntityMap[tp.Name] = ownerEntityId.Value;
-                        
+
                         // Save owner address if provided
                         if (tp.Address != null && tp.Address.HasAnyAddress)
                         {
@@ -1096,30 +1096,30 @@ namespace ClaimsPortal.Services
                             });
                         }
                     }
-                    
+
                     long? tpDriverEntityId = ownerEntityId;
                     if (tp.Driver != null && !string.IsNullOrEmpty(tp.Driver.Name) && !tp.IsDriverSameAsOwner)
                     {
-                        var tpDriverEntity = new Data.EntityMaster 
-                        { 
-                            EntityType = 'I', 
-                            PartyType = "ThirdPartyDriver", 
-                            EntityGroupCode = "Claimant", 
-                            EntityName = tp.Driver.Name, 
+                        var tpDriverEntity = new Data.EntityMaster
+                        {
+                            EntityType = 'I',
+                            PartyType = "ThirdPartyDriver",
+                            EntityGroupCode = "Claimant",
+                            EntityName = tp.Driver.Name,
                             LicenseNumber = tp.Driver.LicenseNumber,
                             LicenseState = tp.Driver.LicenseState,
                             HomeBusinessPhone = tp.Driver.PhoneNumber,
                             Email = tp.Driver.Email,
                             DateOfBirth = tp.Driver.DateOfBirth != default ? tp.Driver.DateOfBirth : null,
-                            EntityStatus = 'Y', 
-                            CreatedDate = DateTime.Now, 
-                            CreatedBy = createdBy 
+                            EntityStatus = 'Y',
+                            CreatedDate = DateTime.Now,
+                            CreatedBy = createdBy
                         };
                         _context.EntityMasters.Add(tpDriverEntity);
                         await _context.SaveChangesAsync();
                         tpDriverEntityId = tpDriverEntity.EntityId;
                         claimantEntityMap[tp.Driver.Name] = tpDriverEntityId.Value;
-                        
+
                         // Save driver address if provided
                         if (tp.Driver.Address != null && tp.Driver.Address.HasAnyAddress)
                         {
@@ -1137,29 +1137,29 @@ namespace ClaimsPortal.Services
                             });
                         }
                     }
-                    
+
                     // Save third party vehicle
-                    _context.Vehicles.Add(new Data.Vehicle 
-                    { 
-                        FnolId = fnol.FnolId, 
-                        ClaimNumber = fnol.ClaimNumber, 
-                        VehicleParty = "TPV", 
-                        VIN = tp.Vehicle?.Vin, 
-                        Make = tp.Vehicle?.Make, 
-                        Model = tp.Vehicle?.Model, 
-                        Year = tp.Vehicle?.Year ?? 0, 
+                    _context.Vehicles.Add(new Data.Vehicle
+                    {
+                        FnolId = fnol.FnolId,
+                        ClaimNumber = fnol.ClaimNumber,
+                        VehicleParty = "TPV",
+                        VIN = tp.Vehicle?.Vin,
+                        Make = tp.Vehicle?.Make,
+                        Model = tp.Vehicle?.Model,
+                        Year = tp.Vehicle?.Year ?? 0,
                         PlateNumber = tp.Vehicle?.PlateNumber,
                         PlateState = tp.Vehicle?.PlateState,
                         IsVehicleDamaged = tp.Vehicle?.IsDamaged ?? false,
                         IsDrivable = tp.Vehicle?.IsDrivable ?? true,
                         InsuranceCarrier = tp.InsuranceCarrier,
                         InsurancePolicyNumber = tp.InsurancePolicyNumber,
-                        VehicleOwnerEntityId = ownerEntityId, 
-                        DriverEntityId = tpDriverEntityId, 
-                        CreatedDate = DateTime.Now, 
-                        CreatedBy = createdBy 
+                        VehicleOwnerEntityId = ownerEntityId,
+                        DriverEntityId = tpDriverEntityId,
+                        CreatedDate = DateTime.Now,
+                        CreatedBy = createdBy
                     });
-                    
+
                     // Create claimant record for injured party
                     if (tp.WasInjured)
                     {
@@ -1170,20 +1170,20 @@ namespace ClaimsPortal.Services
                         // Treat Owner and Driver as vehicle occupants (driver-type) — map both to TPD; passengers map to TPP
                         var claimantType = (tp.InjuredParty == "Driver" || tp.InjuredParty == "Owner") ? "TPD" : "TPP";
 
-                        var tpClaimant = new Data.Claimant 
-                        { 
-                            FnolId = fnol.FnolId, 
-                            ClaimNumber = fnol.ClaimNumber, 
-                            ClaimantEntityId = claimantEntityId, 
-                            ClaimantName = claimantName, 
-                            ClaimantType = claimantType, 
-                            InjuredParty = tp.InjuredParty, 
+                        var tpClaimant = new Data.Claimant
+                        {
+                            FnolId = fnol.FnolId,
+                            ClaimNumber = fnol.ClaimNumber,
+                            ClaimantEntityId = claimantEntityId,
+                            ClaimantName = claimantName,
+                            ClaimantType = claimantType,
+                            InjuredParty = tp.InjuredParty,
                             HasInjury = true,
                             IsAttorneyRepresented = (tpAttorneyVendorId.HasValue || tpAttorneyEntityId.HasValue),
                             AttorneyVendorId = tpAttorneyVendorId,
                             AttorneyEntityId = tpAttorneyEntityId,
-                            CreatedDate = DateTime.Now, 
-                            CreatedBy = createdBy 
+                            CreatedDate = DateTime.Now,
+                            CreatedBy = createdBy
                         };
 
                         // Add injury details
@@ -1208,22 +1208,22 @@ namespace ClaimsPortal.Services
                 else
                 {
                     // Non-vehicle third parties: Passenger, Pedestrian, Bicyclist, Other
-                    var entity = new Data.EntityMaster 
-                    { 
-                        EntityType = 'I', 
-                        PartyType = tp.Type, 
-                        EntityGroupCode = "Claimant", 
-                        EntityName = tp.Name, 
-                        HomeBusinessPhone = tp.PhoneNumber, 
-                        Email = tp.Email, 
-                        EntityStatus = 'Y', 
-                        CreatedDate = DateTime.Now, 
-                        CreatedBy = createdBy 
+                    var entity = new Data.EntityMaster
+                    {
+                        EntityType = 'I',
+                        PartyType = tp.Type,
+                        EntityGroupCode = "Claimant",
+                        EntityName = tp.Name,
+                        HomeBusinessPhone = tp.PhoneNumber,
+                        Email = tp.Email,
+                        EntityStatus = 'Y',
+                        CreatedDate = DateTime.Now,
+                        CreatedBy = createdBy
                     };
                     _context.EntityMasters.Add(entity);
                     await _context.SaveChangesAsync();
                     claimantEntityMap[tp.Name] = entity.EntityId;
-                    
+
                     // Save address if provided
                     if (tp.Address != null && tp.Address.HasAnyAddress)
                     {
@@ -1240,7 +1240,7 @@ namespace ClaimsPortal.Services
                             CreatedBy = createdBy
                         });
                     }
-                    
+
                     var claimantType = tp.Type switch
                     {
                         "Passenger" => "TPP",
@@ -1248,22 +1248,22 @@ namespace ClaimsPortal.Services
                         "Bicyclist" => "BYL",
                         _ => "OTH"
                     };
-                    
-                    var tpClaimant = new Data.Claimant 
-                    { 
-                        FnolId = fnol.FnolId, 
-                        ClaimNumber = fnol.ClaimNumber, 
-                        ClaimantEntityId = entity.EntityId, 
-                        ClaimantName = tp.Name, 
-                        ClaimantType = claimantType, 
+
+                    var tpClaimant = new Data.Claimant
+                    {
+                        FnolId = fnol.FnolId,
+                        ClaimNumber = fnol.ClaimNumber,
+                        ClaimantEntityId = entity.EntityId,
+                        ClaimantName = tp.Name,
+                        ClaimantType = claimantType,
                         HasInjury = tp.WasInjured,
                         IsAttorneyRepresented = (tpAttorneyVendorId.HasValue || tpAttorneyEntityId.HasValue),
                         AttorneyVendorId = tpAttorneyVendorId,
                         AttorneyEntityId = tpAttorneyEntityId,
-                        CreatedDate = DateTime.Now, 
-                        CreatedBy = createdBy 
+                        CreatedDate = DateTime.Now,
+                        CreatedBy = createdBy
                     };
-                    
+
                     // Add injury details if injured
                     if (tp.WasInjured && tp.InjuryInfo != null)
                     {
@@ -1284,7 +1284,7 @@ namespace ClaimsPortal.Services
                     {
                         tpClaimant.Vin = tp.SelectedVehicleVin;
                     }
-                    
+
                     _context.Claimants.Add(tpClaimant);
                 }
             }
@@ -1307,7 +1307,7 @@ namespace ClaimsPortal.Services
                 };
                 _context.EntityMasters.Add(ownerEntity);
                 await _context.SaveChangesAsync();
-                
+
                 // Save owner address
                 if (pd.OwnerAddress != null && pd.OwnerAddress.HasAnyAddress)
                 {
@@ -1380,19 +1380,19 @@ namespace ClaimsPortal.Services
                     CreatedDate = DateTime.Now,
                     CreatedBy = createdBy
                 };
-                
+
                 // Try to get claimant entity ID from map
                 if (claimantEntityMap.TryGetValue(sc.ClaimantName, out long claimantEntityId))
                 {
                     subClaim.ClaimantEntityId = claimantEntityId;
                 }
-                
+
                 // Parse adjuster ID if provided
                 if (!string.IsNullOrEmpty(sc.AssignedAdjusterId) && long.TryParse(sc.AssignedAdjusterId, out long adjusterId))
                 {
                     subClaim.AssignedAdjusterId = adjusterId;
                 }
-                
+
                 _context.SubClaims.Add(subClaim);
                 featureNumber++;
             }
@@ -1505,7 +1505,7 @@ namespace ClaimsPortal.Services
             var authorityEntities = await _context.EntityMasters
                 .Include(e => e.Addresses)
                 .Where(e => authorityEntityIds.Contains(e.EntityId)).ToListAsync();
-            
+
             // Also load vendor records referenced by FnolAuthorities so we can show vendor addresses
             var vendorIds = authorities.Where(a => a.VendorId.HasValue).Select(a => a.VendorId!.Value).Distinct().ToList();
             var vendorMasters = new List<VendorMasterEntity>();
@@ -1621,7 +1621,8 @@ namespace ClaimsPortal.Services
             };
 
             // Populate Witnesses list by matching FnolWitness entries to EntityMaster records
-            claim.LossDetails.Witnesses = witnesses.Select(w => {
+            claim.LossDetails.Witnesses = witnesses.Select(w =>
+            {
                 var entity = witnessEntities.FirstOrDefault(e => e.EntityId == w.EntityId);
                 return new Witness
                 {
@@ -1640,7 +1641,8 @@ namespace ClaimsPortal.Services
             }).ToList();
 
             // Populate AuthoritiesNotified list
-            claim.LossDetails.AuthoritiesNotified = authorities.Select(a => {
+            claim.LossDetails.AuthoritiesNotified = authorities.Select(a =>
+            {
                 var vendor = a.VendorId.HasValue ? vendorMasters.FirstOrDefault(v => v.VendorId == a.VendorId.Value) : null;
                 if (vendor != null)
                 {
@@ -1716,7 +1718,7 @@ namespace ClaimsPortal.Services
                         .FirstOrDefaultAsync(e => e.EntityId == insuredVehicle.DriverEntityId.Value);
                     if (driverEntity != null)
                     {
-                        var driverAddress = driverEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+                        var driverAddress = driverEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                            ?? driverEntity.Addresses?.FirstOrDefault();
                         claim.Driver = new DriverInfo
                         {
@@ -1800,7 +1802,7 @@ namespace ClaimsPortal.Services
                             .FirstOrDefaultAsync(e => e.EntityId == driverClaimant.AttorneyEntityId.Value);
                         if (attorneyEntity != null)
                         {
-                            var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+                            var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                                   ?? attorneyEntity.Addresses?.FirstOrDefault();
                             claim.DriverAttorney = new AttorneyInfo
                             {
@@ -1839,13 +1841,13 @@ namespace ClaimsPortal.Services
                     var entity = await _context.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == pc.ClaimantEntityId.Value);
-                    
+
                     if (entity != null)
                     {
                         passenger.PhoneNumber = entity.HomeBusinessPhone ?? string.Empty;
                         passenger.Email = entity.Email ?? string.Empty;
-                        
-                        var passengerAddress = entity.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+
+                        var passengerAddress = entity.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                                ?? entity.Addresses?.FirstOrDefault();
                         if (passengerAddress != null)
                         {
@@ -1917,7 +1919,7 @@ namespace ClaimsPortal.Services
                             .FirstOrDefaultAsync(e => e.EntityId == pc.AttorneyEntityId.Value);
                         if (attorneyEntity != null)
                         {
-                            var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+                            var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                                   ?? attorneyEntity.Addresses?.FirstOrDefault();
                             passenger.AttorneyInfo = new AttorneyInfo
                             {
@@ -2126,14 +2128,14 @@ namespace ClaimsPortal.Services
                 // Get entity details
                 Data.EntityMaster? tpEntity = null;
                 Data.AddressMaster? tpAddress = null;
-                
+
                 if (tpClaimant.ClaimantEntityId.HasValue)
                 {
                     tpEntity = await _context.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == tpClaimant.ClaimantEntityId.Value);
-                    
-                    tpAddress = tpEntity?.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+
+                    tpAddress = tpEntity?.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                ?? tpEntity?.Addresses?.FirstOrDefault();
                 }
 
@@ -2198,7 +2200,7 @@ namespace ClaimsPortal.Services
                         .FirstOrDefaultAsync(e => e.EntityId == tpClaimant.AttorneyEntityId.Value);
                     if (attorneyEntity != null)
                     {
-                        var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M') 
+                        var attorneyAddress = attorneyEntity.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
                                               ?? attorneyEntity.Addresses?.FirstOrDefault();
                         thirdParty.AttorneyInfo = new AttorneyInfo
                         {
@@ -2345,7 +2347,7 @@ namespace ClaimsPortal.Services
             subClaim.CreatedDate = DateTime.Now;
             subClaim.OpenedDate = DateTime.Now;
             subClaim.SubClaimStatus = 'O'; // Open
-            
+
             _context.SubClaims.Add(subClaim);
             await _context.SaveChangesAsync();
             return subClaim;

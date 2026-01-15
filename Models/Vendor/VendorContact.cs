@@ -34,10 +34,10 @@ public class VendorContact
     /// <summary>
     /// Alias for Email (backward compatibility)
     /// </summary>
-    public string? EmailAddress 
-    { 
-        get => Email; 
-        set => Email = value; 
+    public string? EmailAddress
+    {
+        get => Email;
+        set => Email = value;
     }
 }
 

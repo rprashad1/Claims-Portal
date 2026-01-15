@@ -594,7 +594,6 @@
                      OnCancelled="@(() => {})" />
 
 @code {
-    #pragma warning disable CS8602
     [Inject]
     private ILookupService LookupService { get; set; } = null!;
 
@@ -621,7 +620,7 @@
     private AttorneySearchModal? driverAttorneySearchModal;
     private string CurrentClaimantName = string.Empty;
     private string CurrentClaimType = string.Empty;
-    private bool IsCreatingPassengerFeature = false;
+    
     private InsuredPassenger? EditingPassenger = null;
 
     private string DriverType = "insured";
@@ -816,7 +815,7 @@
         
         CurrentClaimantName = Driver.Name;
         CurrentClaimType = "InsuredDriver";
-        IsCreatingPassengerFeature = false;
+        
         
         if (featureCreationModal != null)
         {
@@ -885,7 +884,7 @@
         {
             CurrentClaimantName = passenger.Name;
             CurrentClaimType = "InsuredPassenger";
-            IsCreatingPassengerFeature = true;
+            
             
             // Small delay to let PassengerModal close first
             await Task.Delay(100);
@@ -915,7 +914,7 @@
     {
         CurrentClaimantName = passenger.Name;
         CurrentClaimType = "InsuredPassenger";
-        IsCreatingPassengerFeature = true;
+        
         
         if (featureCreationModal != null)
         {

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "TfZxaNXvMb4=",
+  "dgSpecHash": "7TePnGdfpjg=",
   "success": true,
-  "projectFilePath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+  "projectFilePath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\rprashad\\.nuget\\packages\\azure.core\\1.47.1\\azure.core.1.47.1.nupkg.sha512",
     "C:\\Users\\rprashad\\.nuget\\packages\\azure.identity\\1.14.2\\azure.identity.1.14.2.nupkg.sha512",
@@ -65,9 +65,9 @@
       "code": "NU1603",
       "level": "Warning",
       "message": "ClaimsPortal.Tests depends on MSTest.TestAdapter (>= 3.1.0) but MSTest.TestAdapter 3.1.0 was not found. MSTest.TestAdapter 3.1.1 was resolved instead.",
-      "projectPath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "projectPath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "filePath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "libraryId": "MSTest.TestAdapter",
       "targetGraphs": [
         "net10.0"
@@ -77,9 +77,9 @@
       "code": "NU1603",
       "level": "Warning",
       "message": "ClaimsPortal.Tests depends on MSTest.TestFramework (>= 3.1.0) but MSTest.TestFramework 3.1.0 was not found. MSTest.TestFramework 3.1.1 was resolved instead.",
-      "projectPath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "projectPath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "filePath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "libraryId": "MSTest.TestFramework",
       "targetGraphs": [
         "net10.0"
@@ -89,9 +89,9 @@
       "code": "NU1603",
       "level": "Warning",
       "message": "ClaimsPortal.Tests depends on xunit.runner.visualstudio (>= 2.6.2) but xunit.runner.visualstudio 2.6.2 was not found. xunit.runner.visualstudio 2.8.0 was resolved instead.",
-      "projectPath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "projectPath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
+      "filePath": "c:\\Projects\\ClaimsPortal\\Tests\\ClaimsPortal.Tests\\ClaimsPortal.Tests.csproj",
       "libraryId": "xunit.runner.visualstudio",
       "targetGraphs": [
         "net10.0"

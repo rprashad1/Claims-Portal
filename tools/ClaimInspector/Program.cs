@@ -1,4 +1,5 @@
 using System;
+#pragma warning disable CS7022
 using System.Data;
 using System.Threading.Tasks;
 using System.Text.Json;
@@ -61,3 +62,4 @@ internal class ClaimInspectorApp
         return 0;
     }
 }
+#pragma warning restore CS7022

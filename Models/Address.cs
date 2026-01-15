@@ -149,7 +149,7 @@ public class Address
             parts.Add(State);
 
         var cityState = string.Join(", ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
-        
+
         if (!string.IsNullOrWhiteSpace(ZipCode))
         {
             if (!string.IsNullOrWhiteSpace(cityState))

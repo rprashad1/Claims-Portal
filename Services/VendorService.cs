@@ -265,7 +265,7 @@ public class VendorService : IVendorService
         // Check if trying to change another address to main when main already exists
         if (address.AddressType == AddressTypeEnum.Main && existingAddress.AddressType != AddressTypeEnum.Main)
         {
-            var existingMain = vendor.Addresses.FirstOrDefault(a => 
+            var existingMain = vendor.Addresses.FirstOrDefault(a =>
                 a.AddressType == AddressTypeEnum.Main && a.Id != address.Id);
             if (existingMain != null)
                 throw new InvalidOperationException("Vendor can only have one main address");

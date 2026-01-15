@@ -35,7 +35,7 @@ public class GeocodioAddressService : IAddressService
     private readonly string _apiKey;
     private const string BaseUrl = "https://api.geocod.io/v1.7/geocode";
     private const string AutocompleteUrl = "https://api.geocod.io/v1.7/geocode/autocomplete";
-    
+
     public GeocodioAddressService(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
@@ -52,9 +52,9 @@ public class GeocodioAddressService : IAddressService
         {
             // Use autocomplete endpoint for partial address matching
             var requestUrl = $"{AutocompleteUrl}?q={Uri.EscapeDataString(query)}&api_key={_apiKey}&country=US&limit=5";
-            
+
             var response = await _httpClient.GetAsync(requestUrl);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 Console.WriteLine($"Geocodio API error: {response.StatusCode}");
@@ -69,13 +69,13 @@ public class GeocodioAddressService : IAddressService
                 return [];
 
             var addressResults = new List<AddressSearchResult>();
-            
+
             foreach (var result in results.EnumerateArray())
             {
                 try
                 {
                     var addressParts = new Dictionary<string, string>();
-                    
+
                     if (result.TryGetProperty("address_components", out var components))
                     {
                         if (components.TryGetProperty("number", out var number))
@@ -108,7 +108,7 @@ public class GeocodioAddressService : IAddressService
 
                     var latitude = 0.0;
                     var longitude = 0.0;
-                    
+
                     if (result.TryGetProperty("location", out var location))
                     {
                         if (location.TryGetProperty("lat", out var lat))

@@ -540,7 +540,6 @@
                      OnCancelled="@(() => {})" />
 
 @code {
-    #pragma warning disable CS8601, CS8602
     [Parameter]
     public EventCallback<ThirdParty> OnThirdPartyAdded { get; set; }
 
@@ -639,20 +638,20 @@
             } : new VehicleInfo(),
             Driver = partyToEdit.Driver != null ? new DriverInfo
             {
-                Name = partyToEdit.Driver.Name,
+                Name = partyToEdit.Driver.Name ?? string.Empty,
                 DateOfBirth = partyToEdit.Driver.DateOfBirth,
-                LicenseNumber = partyToEdit.Driver.LicenseNumber,
-                LicenseState = partyToEdit.Driver.LicenseState,
-                PhoneNumber = partyToEdit.Driver.PhoneNumber,
-                Email = partyToEdit.Driver.Email,
-                FeinSsNumber = partyToEdit.Driver.FeinSsNumber,
+                LicenseNumber = partyToEdit.Driver.LicenseNumber ?? string.Empty,
+                LicenseState = partyToEdit.Driver.LicenseState ?? string.Empty,
+                PhoneNumber = partyToEdit.Driver.PhoneNumber ?? string.Empty,
+                Email = partyToEdit.Driver.Email ?? string.Empty,
+                FeinSsNumber = partyToEdit.Driver.FeinSsNumber ?? string.Empty,
                 Address = partyToEdit.Driver.Address != null ? new Address
                 {
-                    StreetAddress = partyToEdit.Driver.Address.StreetAddress,
-                    AddressLine2 = partyToEdit.Driver.Address.AddressLine2,
-                    City = partyToEdit.Driver.Address.City,
-                    State = partyToEdit.Driver.Address.State,
-                    ZipCode = partyToEdit.Driver.Address.ZipCode
+                    StreetAddress = partyToEdit.Driver.Address.StreetAddress ?? string.Empty,
+                    AddressLine2 = partyToEdit.Driver.Address.AddressLine2 ?? string.Empty,
+                    City = partyToEdit.Driver.Address.City ?? string.Empty,
+                    State = partyToEdit.Driver.Address.State ?? string.Empty,
+                    ZipCode = partyToEdit.Driver.Address.ZipCode ?? string.Empty
                 } : new Address()
             } : new DriverInfo { Address = new Address() },
             InjuryInfo = partyToEdit.InjuryInfo != null ? new Injury
@@ -709,8 +708,9 @@
     {
         ThirdParty ??= new();
         ThirdParty.AttorneyInfo = attorneyInfo ?? new AttorneyInfo { Address = new Address() };
-        SelectedAttorneyVendor = new Vendor { Name = attorneyInfo.FirmName ?? attorneyInfo.Name ?? "" };
-        AttorneyPhoneDisplay = FormatPhoneNumber(attorneyInfo.PhoneNumber);
+        var vendorName = attorneyInfo?.FirmName ?? attorneyInfo?.Name ?? string.Empty;
+        SelectedAttorneyVendor = new Vendor { Name = vendorName };
+        AttorneyPhoneDisplay = FormatPhoneNumber(attorneyInfo?.PhoneNumber);
         StateHasChanged();
     }
 
@@ -733,22 +733,22 @@
         ThirdParty ??= new();
         if (DriverSameAsOwner)
         {
-            ThirdParty.Driver ??= new();
-            ThirdParty.Driver!.Address ??= new();
+            var drv = ThirdParty.Driver ??= new DriverInfo();
+            drv.Address ??= new Address();
 
             // Copy owner info to driver
-            ThirdParty.Driver!.Name = ThirdParty.Name;
-            ThirdParty.Driver!.PhoneNumber = ThirdParty.PhoneNumber;
-            ThirdParty.Driver!.Email = ThirdParty.Email;
-            ThirdParty.Driver!.FeinSsNumber = ThirdParty.FeinSsNumber;
+            drv.Name = ThirdParty.Name ?? string.Empty;
+            drv.PhoneNumber = ThirdParty.PhoneNumber ?? string.Empty;
+            drv.Email = ThirdParty.Email ?? string.Empty;
+            drv.FeinSsNumber = ThirdParty.FeinSsNumber ?? string.Empty;
 
             // Copy full address including City, State, and ZipCode
             var ownerAddr = ThirdParty.Address ?? new Address();
-            ThirdParty.Driver.Address.StreetAddress = ownerAddr.StreetAddress;
-            ThirdParty.Driver.Address.AddressLine2 = ownerAddr.AddressLine2;
-            ThirdParty.Driver.Address.City = ownerAddr.City;
-            ThirdParty.Driver.Address.State = ownerAddr.State;
-            ThirdParty.Driver.Address.ZipCode = ownerAddr.ZipCode;
+            drv.Address.StreetAddress = ownerAddr.StreetAddress ?? string.Empty;
+            drv.Address.AddressLine2 = ownerAddr.AddressLine2 ?? string.Empty;
+            drv.Address.City = ownerAddr.City ?? string.Empty;
+            drv.Address.State = ownerAddr.State ?? string.Empty;
+            drv.Address.ZipCode = ownerAddr.ZipCode ?? string.Empty;
 
             DriverPhoneDisplay = OwnerPhoneDisplay;
 
@@ -785,19 +785,19 @@
         ThirdParty ??= new();
             if (DriverSameAsOwner)
         {
-            ThirdParty.Driver ??= new();
-            ThirdParty.Driver!.Name = ThirdParty.Name;
-            ThirdParty.Driver!.PhoneNumber = ThirdParty.PhoneNumber;
-            ThirdParty.Driver!.Email = ThirdParty.Email;
-            ThirdParty.Driver!.FeinSsNumber = ThirdParty.FeinSsNumber;
-            
-            ThirdParty.Driver!.Address ??= new();
+            var drv = ThirdParty.Driver ??= new DriverInfo();
+            drv.Name = ThirdParty.Name ?? string.Empty;
+            drv.PhoneNumber = ThirdParty.PhoneNumber ?? string.Empty;
+            drv.Email = ThirdParty.Email ?? string.Empty;
+            drv.FeinSsNumber = ThirdParty.FeinSsNumber ?? string.Empty;
+
+            drv.Address ??= new Address();
             var ownerAddr = ThirdParty.Address ?? new Address();
-            ThirdParty.Driver!.Address.StreetAddress = ownerAddr.StreetAddress;
-            ThirdParty.Driver!.Address.AddressLine2 = ownerAddr.AddressLine2;
-            ThirdParty.Driver!.Address.City = ownerAddr.City;
-            ThirdParty.Driver!.Address.State = ownerAddr.State;
-            ThirdParty.Driver!.Address.ZipCode = ownerAddr.ZipCode;
+            drv.Address.StreetAddress = ownerAddr.StreetAddress ?? string.Empty;
+            drv.Address.AddressLine2 = ownerAddr.AddressLine2 ?? string.Empty;
+            drv.Address.City = ownerAddr.City ?? string.Empty;
+            drv.Address.State = ownerAddr.State ?? string.Empty;
+            drv.Address.ZipCode = ownerAddr.ZipCode ?? string.Empty;
             
             DriverPhoneDisplay = OwnerPhoneDisplay;
         }
@@ -806,7 +806,7 @@
     private void OnDriverPhoneChanged(ChangeEventArgs e)
     {
         ThirdParty ??= new();
-        ThirdParty.Driver ??= new();
+        ThirdParty.Driver ??= new DriverInfo();
         var rawValue = e.Value?.ToString() ?? "";
         ThirdParty.Driver.PhoneNumber = new string(rawValue.Where(char.IsDigit).ToArray());
         DriverPhoneDisplay = FormatPhoneNumber(ThirdParty.Driver.PhoneNumber);

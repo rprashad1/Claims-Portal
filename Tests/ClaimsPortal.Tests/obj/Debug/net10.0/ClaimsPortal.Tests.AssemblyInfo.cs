@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ClaimsPortal.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0c69b601ecc08ed2ebd88c4cd108132a7fa3dadb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d560faff0c09686738a80e91b418324a9c70377f")]
 [assembly: System.Reflection.AssemblyProductAttribute("ClaimsPortal.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ClaimsPortal.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -417,8 +417,8 @@ public class DatabaseVendorService : IVendorService
     private VendorMasterEntity MapToVendorMasterEntity(Vendor vendor)
     {
         var paymentDays = GetPaymentDaysString(vendor);
-        
-            return new VendorMasterEntity
+
+        return new VendorMasterEntity
         {
             VendorId = vendor.Id,
             EntityType = vendor.EntityType == EntityType.Business ? 'B' : 'I',
@@ -446,7 +446,7 @@ public class DatabaseVendorService : IVendorService
     private void UpdateVendorEntityFromVendor(VendorMasterEntity entity, Vendor vendor)
     {
         var paymentDays = GetPaymentDaysString(vendor);
-        
+
         entity.EntityType = vendor.EntityType == EntityType.Business ? 'B' : 'I';
         entity.VendorType = GetVendorTypeString(vendor.VendorType);
         entity.VendorName = vendor.Name ?? string.Empty;

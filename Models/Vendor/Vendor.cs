@@ -172,8 +172,8 @@ public class Vendor
     /// </summary>
     public string? GetPrimaryPhone()
     {
-        return !string.IsNullOrWhiteSpace(Contact?.BusinessPhone) 
-            ? Contact.BusinessPhone 
+        return !string.IsNullOrWhiteSpace(Contact?.BusinessPhone)
+            ? Contact.BusinessPhone
             : Contact?.MobilePhone;
     }
 
@@ -185,7 +185,7 @@ public class Vendor
     /// <summary>
     /// Check if vendor record is complete
     /// </summary>
-    public bool IsComplete => 
+    public bool IsComplete =>
         !string.IsNullOrWhiteSpace(Name) &&
         !string.IsNullOrWhiteSpace(FeinNumber) &&
         EffectiveDate.HasValue &&

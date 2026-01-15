@@ -14,31 +14,31 @@ public class Party
     public string Name { get; set; } = string.Empty;
     public string PartyType { get; set; } = string.Empty; // Reported By, Witness, Insured Driver, Passenger, etc.
     public string PartyRole { get; set; } = string.Empty; // Vehicle Owner, Pedestrian, Bicyclist, Property Owner, etc.
-    
+
     // Individual/Business Type
     public string EntityType { get; set; } = "Individual"; // Individual or Business
     public string? BusinessName { get; set; } = string.Empty; // Business name if EntityType is Business
     public string? DoingBusinessAs { get; set; } = string.Empty; // DBA if applicable
-    
+
     // Contact Information
     public string Address { get; set; } = string.Empty;
     public string? Address2 { get; set; } = string.Empty; // Secondary address (optional)
     public string City { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
     public string ZipCode { get; set; } = string.Empty;
-    
+
     public string PhoneNumber { get; set; } = string.Empty;
     public string? Phone2 { get; set; } = string.Empty; // Secondary phone (optional)
     public string Email { get; set; } = string.Empty;
-    
+
     // Identification
     public string FeinSsNumber { get; set; } = string.Empty; // FEIN for business, SS# for individual
     public string? LicenseNumber { get; set; } = string.Empty; // Driver license, if applicable
     public string? LicenseState { get; set; } = string.Empty; // License state, if applicable
-    
+
     // Personal Information
     public DateTime? DateOfBirth { get; set; } // Optional, for individuals
-    
+
     // Metadata
     public DateTime CreatedDate { get; set; } = DateTime.Now;
     public string CreatedBy { get; set; } = string.Empty;
@@ -55,7 +55,7 @@ public class InjuryRecord
     public int SeverityLevel { get; set; } = 1; // Severity: 1 (Minor), 2, 3, 4, 5 (Critical)
     public DateTime DateOfInjury { get; set; } = DateTime.Now;
     public string InjuryDescription { get; set; } = string.Empty; // Multi-line description
-    
+
     // Medical Information
     public DateTime FirstMedicalTreatmentDate { get; set; }
     public bool IsFatality { get; set; }
@@ -65,7 +65,7 @@ public class InjuryRecord
     public string? HospitalCity { get; set; } = string.Empty;
     public string? HospitalState { get; set; } = string.Empty;
     public string? HospitalZipCode { get; set; } = string.Empty;
-    
+
     // Additional Information
     public string? TreatingPhysician { get; set; } = string.Empty;
     public string? PreexistingConditions { get; set; } = string.Empty; // Multi-line
@@ -141,20 +141,20 @@ public class ClaimLossDetails
     public string? Location2 { get; set; } = string.Empty;
     public string ReportedBy { get; set; } = string.Empty;
     public string ReportingMethod { get; set; } = string.Empty;
-    
+
     // If Reported By is "Other" - use unified Address class (ALL OPTIONAL)
     public string? ReportedByName { get; set; }
     public Address? ReportedByAddress { get; set; } = new(); // ? Now using unified Address class
     public string? ReportedByPhone { get; set; }
     public string? ReportedByEmail { get; set; }
     public string? ReportedByFeinSsNumber { get; set; }
-    
+
     public List<Witness> Witnesses { get; set; } = [];
     public List<Authority> AuthoritiesNotified { get; set; } = [];
     public bool HasOtherVehiclesInvolved { get; set; }
     public bool HasInjuries { get; set; }
     public bool HasPropertyDamage { get; set; }
-    
+
     public string CauseOfLoss { get; set; } = string.Empty;
     public string LossDescription { get; set; } = string.Empty;
     public string WeatherCondition { get; set; } = string.Empty;
@@ -185,17 +185,17 @@ public class VehicleInfo
     public bool IsDamaged { get; set; }
     public bool IsDrivable { get; set; }
     public bool IsListed { get; set; } = true;
-    
+
     // Entity references for vehicle owner and driver
     public long? VehicleOwnerEntityId { get; set; }  // FK to EntityMaster - Vehicle Owner
     public long? DriverEntityId { get; set; }        // FK to EntityMaster - Driver (if different from owner)
-    
+
     // Vehicle condition fields
     public bool WasTowed { get; set; }
     public bool InStorage { get; set; }
     public string? StorageLocation { get; set; }
     public bool HasDashCam { get; set; }
-    
+
     // Vehicle damage fields
     public string DamageDetails { get; set; } = string.Empty;
     public bool DidVehicleRollOver { get; set; }
@@ -240,7 +240,7 @@ public class AttorneyInfo
     /// If null, attorney was manually entered and needs to be created.
     /// </summary>
     public long? VendorEntityId { get; set; }
-    
+
     public string Name { get; set; } = string.Empty;
     public string FirmName { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
@@ -262,7 +262,7 @@ public class SubClaim
     public string Status { get; set; } = "Open";
     public DateTime CreatedDate { get; set; }
     public string ClaimType { get; set; } = string.Empty; // Driver, Passenger, ThirdParty
-    
+
     // Financial fields for grid display
     public decimal Deductible { get; set; }
     public decimal Offset { get; set; }
@@ -280,7 +280,7 @@ public class Claim
     public string Status { get; set; } = "Open"; // Open, CIQ (Claim Inquiry), Investigation, etc.
     public DateTime CreatedDate { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
-    
+
     public ClaimLossDetails LossDetails { get; set; } = new();
     public Policy PolicyInfo { get; set; } = new();
     public InsuredPartyInfo InsuredParty { get; set; } = new();
@@ -292,7 +292,7 @@ public class Claim
     public List<ThirdParty> ThirdParties { get; set; } = [];
     public List<PropertyDamage> PropertyDamages { get; set; } = [];
     public List<SubClaim> SubClaims { get; set; } = [];
-    
+
     // New party-based collections (future use)
     public List<Party> Parties { get; set; } = [];
     public List<InjuryRecord> InjuryRecords { get; set; } = [];
@@ -323,30 +323,30 @@ public class ThirdParty
     public string? PhoneNumber { get; set; } = string.Empty;
     public string? Email { get; set; } = string.Empty;
     public string? FeinSsNumber { get; set; } = string.Empty;
-    
+
     // Third Party Vehicle Insurance Information (optional - for Vehicle type)
     public string? InsuranceCarrier { get; set; } = string.Empty;
     public string? InsurancePolicyNumber { get; set; } = string.Empty;
-    
+
     public VehicleInfo? Vehicle { get; set; }
     public DriverInfo? Driver { get; set; }
     /// <summary>
     /// Selected VIN when this third party record is a passenger (references one of the third-party vehicles)
     /// </summary>
     public string? SelectedVehicleVin { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// For Vehicle type: Identifies who is the injured party (and therefore the claimant).
     /// Values: "Owner" or "Driver"
     /// The injured party is always the claimant.
     /// </summary>
     public string? InjuredParty { get; set; } = string.Empty; // "Owner" or "Driver"
-    
+
     public bool WasInjured { get; set; }
     public Injury? InjuryInfo { get; set; } // ? NOW using unified Injury class (ALL OPTIONAL)
     public bool HasAttorney { get; set; }
     public AttorneyInfo? AttorneyInfo { get; set; }
-    
+
     /// <summary>
     /// Gets the claimant name based on who is the injured party.
     /// For Vehicle type: Returns the name of the injured party (Owner or Driver).
@@ -356,13 +356,13 @@ public class ThirdParty
     {
         if (Type != "Vehicle" || !WasInjured)
             return Name;
-            
+
         if (InjuredParty == "Driver" && Driver != null && !string.IsNullOrEmpty(Driver.Name))
             return Driver.Name;
-            
+
         return Name; // Default to Owner
     }
-    
+
     /// <summary>
     /// Determines if the driver is the same person as the owner.
     /// </summary>
@@ -392,18 +392,18 @@ public class PropertyDamage
     public int Id { get; set; }
     public string PropertyType { get; set; } = string.Empty; // Building, Fence, Other
     public string Description { get; set; } = string.Empty; // Property Description
-    
+
     // Property Owner Information
     public string OwnerName { get; set; } = string.Empty;
     public Address OwnerAddress { get; set; } = new(); // ? Now using unified Address class (ALL OPTIONAL)
     public string OwnerPhoneNumber { get; set; } = string.Empty;
     public string OwnerEmail { get; set; } = string.Empty;
     public string OwnerFeinSsNumber { get; set; } = string.Empty; // Optional
-    
+
     // Property Location (can be different from owner address)
     public string PropertyLocation { get; set; } = string.Empty;
     public Address PropertyAddress { get; set; } = new(); // Can capture separate property address (ALL OPTIONAL)
-    
+
     public string DamageDescription { get; set; } = string.Empty;
     public decimal EstimatedDamage { get; set; } // Optional - not required for Save & Create Feature
 }

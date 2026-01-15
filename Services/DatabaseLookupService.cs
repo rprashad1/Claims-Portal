@@ -26,9 +26,9 @@ namespace ClaimsPortal.Services
         public async Task<LookupCode?> GetLookupCodeAsync(string recordType, string recordCode)
         {
             return await _context.LookupCodes
-                .FirstOrDefaultAsync(l => 
-                    l.RecordType == recordType && 
-                    l.RecordCode == recordCode && 
+                .FirstOrDefaultAsync(l =>
+                    l.RecordType == recordType &&
+                    l.RecordCode == recordCode &&
                     l.RecordStatus == 'Y');
         }
 
