@@ -1,0 +1,96 @@
+@using ClaimsPortal.Models
+@namespace ClaimsPortal.Components.Shared
+
+<div class="mt-3 border rounded p-3">
+    <h6>Damage Information</h6>
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="isVehicleDamaged_@Id" @bind="Vehicle!.IsDamaged" />
+        <label class="form-check-label" for="isVehicleDamaged_@Id">Vehicle Damaged</label>
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label">Damage Details</label>
+        <textarea class="form-control" @bind="Vehicle!.DamageDetails"></textarea>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="isDrivable_@Id" @bind="Vehicle!.IsDrivable" />
+                <label class="form-check-label" for="isDrivable_@Id">Vehicle is Drivable</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="wasTowed_@Id" @bind="Vehicle!.WasTowed" />
+                <label class="form-check-label" for="wasTowed_@Id">Vehicle Was Towed</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="hasDashCam_@Id" @bind="Vehicle!.HasDashCam" />
+                <label class="form-check-label" for="hasDashCam_@Id">Dash Cam Installed</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="inStorage_@Id" @bind="Vehicle!.InStorage" />
+                <label class="form-check-label" for="inStorage_@Id">Vehicle in Storage</label>
+            </div>
+        </div>
+    </div>
+
+    @if (Vehicle != null && Vehicle.InStorage)
+    {
+        <div class="mb-3">
+            <label class="form-label">Storage Location</label>
+            <input class="form-control" @bind="Vehicle.StorageLocation" />
+        </div>
+    }
+
+    @if (Vehicle != null && Vehicle.IsDamaged)
+    {
+        <div class="border-top pt-3 mt-3">
+            <h6 class="mb-3">Vehicle Damage Details</h6>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="didRollOver_@Id" @bind="Vehicle!.DidVehicleRollOver" />
+                        <label class="form-check-label" for="didRollOver_@Id">Vehicle Did Roll Over</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="hadWaterDamage_@Id" @bind="Vehicle!.HadWaterDamage" />
+                        <label class="form-check-label" for="hadWaterDamage_@Id">Had Water Damage</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="headlightsOn_@Id" @bind="Vehicle!.AreHeadlightsOn" />
+                        <label class="form-check-label" for="headlightsOn_@Id">Headlights Were On</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="airbagDeploy_@Id" @bind="Vehicle!.DidAirbagDeploy" />
+                        <label class="form-check-label" for="airbagDeploy_@Id">Air Bag Deployed</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public VehicleInfo? Vehicle { get; set; }
+
+    // Provide a stable id for element ids in case multiple editors are rendered
+    private string Id { get; } = Guid.NewGuid().ToString("N");
+}

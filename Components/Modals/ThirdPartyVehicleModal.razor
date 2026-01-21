@@ -54,29 +54,10 @@
                             <label class="form-label">Plate State</label>
                             <input type="text" class="form-control" maxlength="2" @bind="ThirdParty.Vehicle!.PlateState" placeholder="ST" />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Insurance Carrier (vehicle)</label>
-                            <input type="text" class="form-control" @bind="ThirdParty.InsuranceCarrier" placeholder="Carrier" />
-                        </div>
+                        <!-- Insurance Carrier (vehicle) removed per UI change; keep owner carrier on Owner step -->
                     </div>
-
-                    <!-- Damage section -->
-                    <div class="mt-3 border rounded p-3">
-                        <h6>Damage Information</h6>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" id="isVehicleDamaged" @bind="ThirdParty.Vehicle!.IsDamaged" />
-                            <label class="form-check-label" for="isVehicleDamaged">Vehicle Damaged</label>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">Damage Details</label>
-                            <textarea class="form-control" @bind="ThirdParty.Vehicle!.DamageDetails"></textarea>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" @bind="ThirdParty.Vehicle!.DidVehicleRollOver" id="didRoll" /><label class="form-check-label" for="didRoll">Rolled Over</label></div></div>
-                            <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" @bind="ThirdParty.Vehicle!.HadWaterDamage" id="hadWater" /><label class="form-check-label" for="hadWater">Had Water Damage</label></div></div>
-                            <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" @bind="ThirdParty.Vehicle!.AirbagDeployed" id="airbag" /><label class="form-check-label" for="airbag">Airbag Deployed</label></div></div>
-                        </div>
-                        </div>
+                    <!-- Reusable vehicle damage editor -->
+                    <VehicleDamageEditor Vehicle="ThirdParty.Vehicle" />
                 }
 
                 @if (CurrentStep == 1)
