@@ -151,7 +151,8 @@
         SearchTerm = "";
         HasSearched = false;
         SearchResults = new();
-        
+        // ensure the component renders updated state before JS shows the modal
+        await InvokeAsync(StateHasChanged);
         await JS.InvokeVoidAsync("ShowModal", ModalId);
     }
 
@@ -197,19 +198,23 @@
             Phone = hospital.Phone ?? ""
         };
 
+        // log to client console for debugging selection flow
+        try { await JS.InvokeVoidAsync("console.log", "HospitalSearchModal.SelectHospital", hospital.EntityId, hospital.Name); } catch { }
         await OnHospitalSelected.InvokeAsync(hospitalInfo);
         await JS.InvokeVoidAsync("HideModal", ModalId);
     }
 
     private async Task EnterManually()
     {
-        await OnManualEntry.InvokeAsync();
+        // hide modal immediately to avoid overlay/focus issues, then notify parent
         await JS.InvokeVoidAsync("HideModal", ModalId);
+        await OnManualEntry.InvokeAsync();
     }
 
     private async Task OnCancel()
     {
-        await OnCancelled.InvokeAsync();
+        // hide modal first to keep behavior consistent with Attorney modal
         await JS.InvokeVoidAsync("HideModal", ModalId);
+        await OnCancelled.InvokeAsync();
     }
 }

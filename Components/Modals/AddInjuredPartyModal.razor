@@ -1,0 +1,267 @@
+@using ClaimsPortal.Models
+@using ClaimsPortal.Components.Shared
+@using ClaimsPortal.Components.Modals
+
+@if (NewParty != null)
+{
+    <div class="modal fade" id="addInjuredPartyModal" tabindex="-1" role="dialog" aria-labelledby="addInjuredPartyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addInjuredPartyModalLabel">Add Injured Party</h5>
+                <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Party Type</label>
+                    <select class="form-select" @bind="NewParty.Type">
+                        <option value="">-- Select Party Type --</option>
+                        <option value="Passenger">Passenger</option>
+                        <option value="Pedestrian">Pedestrian</option>
+                        <option value="Bicyclist">Bicyclist</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-control" @bind="NewParty.Name" placeholder="Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Associated Vehicle</label>
+                    <input type="text" class="form-control" value="@AssociatedVehicleDisplay" disabled />
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="injuredWasInjured" @bind="NewParty.WasInjured" />
+                    <label class="form-check-label" for="injuredWasInjured">Was Injured</label>
+                </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Street Address</label>
+                            <input class="form-control" @bind="NewParty.Address.StreetAddress" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Address 2</label>
+                            <input class="form-control" @bind="NewParty.Address.AddressLine2" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4"><label class="form-label">City</label><input class="form-control" @bind="NewParty.Address.City" /></div>
+                        <div class="col-md-2"><label class="form-label">State</label><input class="form-control" maxlength="2" @bind="NewParty.Address.State" /></div>
+                        <div class="col-md-2"><label class="form-label">Zip</label><input class="form-control" @bind="NewParty.Address.ZipCode" /></div>
+                        <div class="col-md-4"><label class="form-label">Phone</label><input class="form-control" @bind="NewParty.PhoneNumber" placeholder="(555) 555-5555" /></div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" @bind="NewParty.Email" /></div>
+                        <div class="col-md-6"><label class="form-label">FEIN / SSN</label><input class="form-control" @bind="NewParty.FeinSsNumber" placeholder="###-##-####" /></div>
+                    </div>
+
+                    <div class="row g-2 mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Injury Type</label>
+                            <select class="form-select" @bind="NewParty.InjuryInfo.InjuryType">
+                                <option value="">-- Select Injury Type --</option>
+                                @foreach (var t in Injury.GetInjuryTypes())
+                                {
+                                    <option value="@t">@t</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Severity</label>
+                            <select class="form-select" @bind="NewParty.InjuryInfo.SeverityLevel">
+                                @foreach (var s in Injury.GetSeverityLevels())
+                                {
+                                    <option value="@s.Value">@s.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="injuredFatality" @bind="NewParty.InjuryInfo.IsFatality" />
+                                <label class="form-check-label" for="injuredFatality">Fatality</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-2">
+                        <label class="form-label">Injury Description</label>
+                        <textarea class="form-control" @bind="NewParty.InjuryInfo.InjuryDescription"></textarea>
+                    </div>
+
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-outline-primary" @onclick="ShowHospitalSearch">Search Hospital</button>
+                        <div class="flex-grow-1">
+                            <input class="form-control" placeholder="Hospital Name" @bind="NewParty.InjuryInfo.HospitalName" />
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="hasAttorney" @bind="NewParty.HasAttorney" />
+                        <label class="form-check-label" for="hasAttorney">Has Attorney</label>
+                    </div>
+
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-outline-primary" @onclick="ShowAttorneySearch">Search Attorney</button>
+                        <div class="flex-grow-1">
+                            <input class="form-control" placeholder="e.g. Michael Davis, Esq." @bind="NewParty.AttorneyInfo.Name" />
+                            <small class="form-text text-muted">Example: Michael Davis, Esq. — or search to select from Vendor list</small>
+                        </div>
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveAndCreateFeature">Save & Create Feature</button>
+            </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div style="display:none"></div>
+}
+
+<AttorneySearchModal @ref="attorneySearchModal" ModalId="addInjuredPartyAttorneySearchModal" OnAttorneySelected="OnAttorneySelected" OnManualEntry="OnAttorneyManualEntry" OnCancelled="() => {}" />
+
+@* Use a per-instance HospitalSearchModal (mirrors Attorney pattern). Fall back to shared modal if instance not available. *@
+<HospitalSearchModal @ref="hospitalSearchModal" ModalId="addInjuredPartyHospitalSearchModal" OnHospitalSelected="OnHospitalSelected" OnManualEntry="OnHospitalManualEntry" OnCancelled="() => {}" />
+
+@code {
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    private ThirdParty NewParty { get; set; } = new ThirdParty
+    {
+        Address = new Address(),
+        InjuryInfo = new Injury(),
+        AttorneyInfo = new AttorneyInfo { Address = new Address() }
+    };
+    private string AssociatedVehicleDisplay { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<ThirdParty> OnInjuredPartyAdded { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Ensure nested objects exist to avoid null-reference during render
+        NewParty ??= new ThirdParty();
+        NewParty.Address ??= new Address();
+        NewParty.InjuryInfo ??= new Injury();
+        NewParty.AttorneyInfo ??= new AttorneyInfo { Address = new Address() };
+        NewParty.AttorneyInfo.Address ??= new Address();
+    }
+
+    public async Task ShowAsync(ThirdParty vehicle)
+    {
+        // Initialize a new injured party linked to the provided vehicle
+        NewParty = new ThirdParty
+        {
+            Type = "Passenger",
+            SelectedVehicleVin = vehicle?.Vehicle?.Vin ?? string.Empty,
+            WasInjured = false,
+            InjuryInfo = new Injury(),
+            Address = new Address(),
+            AttorneyInfo = new AttorneyInfo { Address = new Address() }
+        };
+
+        AssociatedVehicleDisplay = vehicle?.Vehicle?.Vin ?? vehicle?.Name ?? string.Empty;
+
+        // render the initialized state before showing the modal so bindings are attached
+        await InvokeAsync(StateHasChanged);
+        await JS.InvokeVoidAsync("ShowModal", "addInjuredPartyModal");
+    }
+
+    private async Task Save()
+    {
+        NewParty.InjuryInfo ??= new Injury();
+
+        if (OnInjuredPartyAdded.HasDelegate)
+            await OnInjuredPartyAdded.InvokeAsync(NewParty);
+
+        // Default Save hides the modal
+        await JS.InvokeVoidAsync("HideModal", "addInjuredPartyModal");
+    }
+
+    // Save but keep the Add Injured Party modal open so parent can open the Feature modal
+    private async Task SaveAndCreateFeature()
+    {
+        NewParty.InjuryInfo ??= new Injury();
+
+        if (OnInjuredPartyAdded.HasDelegate)
+            await OnInjuredPartyAdded.InvokeAsync(NewParty);
+
+        // Do NOT hide this modal so both AddInjuredPartyModal and FeatureCreationModal can be visible
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnCancel()
+    {
+        await JS.InvokeVoidAsync("HideModal", "addInjuredPartyModal");
+    }
+
+    // Allow parent to programmatically hide this modal (e.g., after feature creation completes)
+    public async Task HideAsync()
+    {
+        await JS.InvokeVoidAsync("HideModal", "addInjuredPartyModal");
+    }
+
+    // Modal refs and handlers for hospital/attorney selection
+    private AttorneySearchModal? attorneySearchModal;
+    private HospitalSearchModal? hospitalSearchModal;
+    [Inject]
+    private ClaimsPortal.Services.HospitalSearchCoordinator HospitalSearchCoordinator { get; set; } = null!;
+
+    private async Task ShowAttorneySearch()
+    {
+        if (attorneySearchModal != null)
+            await attorneySearchModal.ShowAsync();
+    }
+
+    private async Task ShowHospitalSearch()
+    {
+        if (hospitalSearchModal != null)
+        {
+            await hospitalSearchModal.ShowAsync();
+            return;
+        }
+
+        // fallback to shared modal behavior
+        HospitalSearchCoordinator.RegisterCallback(async (h) => await OnHospitalSelected(h));
+        await InvokeAsync(StateHasChanged);
+        await JS.InvokeVoidAsync("ShowModal", "hospitalSearchModal_shared");
+    }
+
+    private async Task OnAttorneySelected(AttorneyInfo info)
+    {
+        NewParty.HasAttorney = true;
+        NewParty.AttorneyInfo = info ?? new AttorneyInfo { Address = new Address() };
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnAttorneyManualEntry()
+    {
+        // allow manual entry; no-op
+    }
+
+    private async Task OnHospitalSelected(HospitalInfo info)
+    {
+        NewParty.InjuryInfo ??= new Injury();
+        NewParty.InjuryInfo.HospitalName = info?.Name;
+        NewParty.InjuryInfo.HospitalStreetAddress = info?.StreetAddress;
+        NewParty.InjuryInfo.HospitalCity = info?.City;
+        NewParty.InjuryInfo.HospitalState = info?.State;
+        NewParty.InjuryInfo.HospitalZipCode = info?.ZipCode;
+        NewParty.InjuryInfo.WasTakenToHospital = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHospitalManualEntry()
+    {
+        // allow manual hospital entry
+    }
+}

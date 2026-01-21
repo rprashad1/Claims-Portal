@@ -18,26 +18,116 @@
 <body>
     <Routes />
     <ReconnectModal />
+    @using ClaimsPortal.Components.Modals
+    @inject ClaimsPortal.Services.HospitalSearchCoordinator HospitalSearchCoordinator
+
+    <!-- Shared Hospital Search Modal used by multiple components to keep behavior consistent -->
+    <HospitalSearchModal ModalId="hospitalSearchModal_shared"
+                         OnHospitalSelected="@(async (ClaimsPortal.Models.HospitalInfo h) => await HospitalSearchCoordinator.NotifySelection(h))"
+                         OnManualEntry="@(() => { HospitalSearchCoordinator.UnregisterCallback(); })"
+                         OnCancelled="@(() => { HospitalSearchCoordinator.UnregisterCallback(); })" />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        window.ShowModal = function (modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                const bootstrapModal = new bootstrap.Modal(modal);
-                bootstrapModal.show();
+        window.ShowModal = async function (modalId) {
+            try {
+                const findModal = (id) => document.getElementById(id);
+
+                const waitForModal = (id, timeoutMs = 2000) => new Promise((resolve) => {
+                    const start = Date.now();
+                    const tick = () => {
+                        const m = findModal(id);
+                        if (m) return resolve(m);
+                        if (Date.now() - start > timeoutMs) return resolve(null);
+                        setTimeout(tick, 50);
+                    };
+                    tick();
+                });
+
+                const modal = findModal(modalId) || await waitForModal(modalId, 2000);
+                if (!modal) {
+                    console.warn('ShowModal: element not found by id', modalId);
+                    return;
+                }
+
+                // If modal is not in body, move it into document.body to avoid layout clipping
+                try {
+                    if (modal.parentElement !== document.body) {
+                        modal.__originalParent = modal.parentElement;
+                        modal.__originalNextSibling = modal.nextSibling;
+                        document.body.appendChild(modal);
+                    }
+                } catch (e) { }
+
+                const options = { backdrop: true, keyboard: true };
+                const instance = bootstrap.Modal.getOrCreateInstance(modal, options);
+                instance.show();
+            } catch (e) {
+                console.warn('ShowModal error', e);
             }
         };
 
         window.HideModal = function (modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                const bootstrapModal = bootstrap.Modal.getInstance(modal);
-                if (bootstrapModal) {
-                    bootstrapModal.hide();
-                }
+            try {
+                const modal = document.getElementById(modalId);
+                if (!modal) return;
+                const instance = bootstrap.Modal.getInstance(modal) || bootstrap.Modal.getOrCreateInstance(modal);
+                instance.hide();
+
+                // restore modal to original parent if we moved it
+                try {
+                    if (modal.__originalParent) {
+                        if (modal.__originalNextSibling && modal.__originalParent.contains(modal.__originalNextSibling)) {
+                            modal.__originalParent.insertBefore(modal, modal.__originalNextSibling);
+                        } else {
+                            modal.__originalParent.appendChild(modal);
+                        }
+                        delete modal.__originalParent;
+                        delete modal.__originalNextSibling;
+                    }
+                } catch (e) { }
+            } catch (e) {
+                console.warn('HideModal error', e);
             }
         };
+        // Client-side console logger: posts errors/warns to server for debugging
+        (function () {
+            const sendLog = (level, message, extra) => {
+                try {
+                    fetch('/api/clientlogs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ level: level, message: message, extra: extra, url: location.href, ua: navigator.userAgent })
+                    });
+                } catch (e) { }
+            };
+
+            const origError = console.error.bind(console);
+            console.error = function (...args) {
+                try { sendLog('error', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')); } catch (e) { }
+                origError(...args);
+            };
+
+            const origWarn = console.warn.bind(console);
+            console.warn = function (...args) {
+                try { sendLog('warn', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')); } catch (e) { }
+                origWarn(...args);
+            };
+
+            const origLog = console.log.bind(console);
+            console.log = function (...args) {
+                try { sendLog('info', args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')); } catch (e) { }
+                origLog(...args);
+            };
+
+            window.addEventListener('error', function (ev) {
+                try { sendLog('error', ev.message + ' @@' + ev.filename + ':' + ev.lineno + ':' + ev.colno, { stack: ev.error && ev.error.stack }); } catch (e) { }
+            });
+
+            window.addEventListener('unhandledrejection', function (ev) {
+                try { sendLog('error', 'UnhandledRejection', { reason: ev.reason && (ev.reason.message || JSON.stringify(ev.reason)) }); } catch (e) { }
+            });
+        })();
     </script>
 </body>
 

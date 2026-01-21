@@ -857,7 +857,8 @@ namespace ClaimsPortal.Services
                 // Save passenger attorney if provided (prefer VendorMaster)
                 long? passengerAttorneyVendorId = null;
                 long? passengerAttorneyEntityId = null;
-                if (passenger.HasAttorney && passenger.AttorneyInfo != null && !string.IsNullOrEmpty(passenger.AttorneyInfo.Name))
+                // Consider either explicit HasAttorney+Name or a Vendor selection as indicating attorney presence
+                if ((passenger.HasAttorney && passenger.AttorneyInfo != null && !string.IsNullOrEmpty(passenger.AttorneyInfo.Name)) || (passenger.AttorneyInfo != null && passenger.AttorneyInfo.VendorEntityId.HasValue))
                 {
                     if (passenger.AttorneyInfo.VendorEntityId.HasValue)
                     {
@@ -978,7 +979,8 @@ namespace ClaimsPortal.Services
                 // Save third party attorney if provided (prefer VendorMaster)
                 long? tpAttorneyVendorId = null;
                 long? tpAttorneyEntityId = null;
-                if (tp.HasAttorney && tp.AttorneyInfo != null && !string.IsNullOrEmpty(tp.AttorneyInfo.Name))
+                // Consider either explicit HasAttorney+Name or a Vendor selection as indicating attorney presence
+                if ((tp.HasAttorney && tp.AttorneyInfo != null && !string.IsNullOrEmpty(tp.AttorneyInfo.Name)) || (tp.AttorneyInfo != null && tp.AttorneyInfo.VendorEntityId.HasValue))
                 {
                     if (tp.AttorneyInfo.VendorEntityId.HasValue)
                     {
@@ -1163,6 +1165,23 @@ namespace ClaimsPortal.Services
                     // Create claimant record for injured party
                     if (tp.WasInjured)
                     {
+                        Console.WriteLine($"[DEBUG] TP Vehicle claimant - InjuredParty={tp.InjuredParty}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, OwnerEntityId={ownerEntityId}, DriverEntityId={tpDriverEntityId}, DriverName='{tp.Driver?.Name}', TPName='{tp.Name}'");
+
+                        // If the UI did not supply an explicit InjuredParty, default to Driver when driver info exists; otherwise Owner.
+                        if (string.IsNullOrEmpty(tp.InjuredParty))
+                        {
+                            if (tp.Driver != null && !string.IsNullOrEmpty(tp.Driver.Name))
+                            {
+                                tp.InjuredParty = "Driver";
+                                Console.WriteLine("[DEBUG] No InjuredParty selected; defaulting to 'Driver' because driver data exists.");
+                            }
+                            else if (!string.IsNullOrEmpty(tp.Name))
+                            {
+                                tp.InjuredParty = "Owner";
+                                Console.WriteLine("[DEBUG] No InjuredParty selected; defaulting to 'Owner'.");
+                            }
+                        }
+
                         var claimantEntityId = tp.InjuredParty == "Driver" ? tpDriverEntityId : ownerEntityId;
                         var claimantName = tp.InjuredParty == "Driver" ? (tp.Driver?.Name ?? tp.Name) : tp.Name;
 
@@ -1284,6 +1303,8 @@ namespace ClaimsPortal.Services
                     {
                         tpClaimant.Vin = tp.SelectedVehicleVin;
                     }
+
+                    Console.WriteLine($"[DEBUG] TP Non-Vehicle claimant - Type={tp.Type}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, TPName='{tp.Name}'");
 
                     _context.Claimants.Add(tpClaimant);
                 }
@@ -1440,19 +1461,23 @@ namespace ClaimsPortal.Services
         {
             var query = _context.FNOLs.AsQueryable();
 
-            if (!string.IsNullOrEmpty(claimNumber))
+            // Support partial and case-insensitive matching for user convenience
+            if (!string.IsNullOrWhiteSpace(claimNumber))
             {
-                query = query.Where(f => f.ClaimNumber == claimNumber);
+                var cn = claimNumber.Trim();
+                query = query.Where(f => !string.IsNullOrEmpty(f.ClaimNumber) && EF.Functions.Like(f.ClaimNumber, $"%{cn}%"));
             }
 
-            if (!string.IsNullOrEmpty(fnolNumber))
+            if (!string.IsNullOrWhiteSpace(fnolNumber))
             {
-                query = query.Where(f => f.FnolNumber == fnolNumber);
+                var fn = fnolNumber.Trim();
+                query = query.Where(f => !string.IsNullOrEmpty(f.FnolNumber) && EF.Functions.Like(f.FnolNumber, $"%{fn}%"));
             }
 
-            if (!string.IsNullOrEmpty(policyNumber))
+            if (!string.IsNullOrWhiteSpace(policyNumber))
             {
-                query = query.Where(f => f.PolicyNumber == policyNumber);
+                var pn = policyNumber.Trim();
+                query = query.Where(f => !string.IsNullOrEmpty(f.PolicyNumber) && EF.Functions.Like(f.PolicyNumber, $"%{pn}%"));
             }
 
             if (dateOfLossFrom.HasValue)

@@ -211,11 +211,12 @@
 
     private async Task SelectAttorney(VendorSearchResult vendor)
     {
+        Console.WriteLine($"[AttorneySearchModal] SelectAttorney invoked for vendor {vendor?.EntityId}");
         // Convert to AttorneyInfo
         var attorneyInfo = new AttorneyInfo
         {
-            // Store the vendor's EntityId so we don't create a duplicate when saving
-            VendorEntityId = vendor.EntityId,
+            // Store the vendor's VendorId so backend can find the VendorMaster record
+            VendorEntityId = vendor.VendorId,
             Name = vendor.ContactName ?? vendor.Name,
             FirmName = vendor.Name,
             PhoneNumber = vendor.Phone ?? "",
@@ -230,19 +231,26 @@
             }
         };
 
+        Console.WriteLine("[AttorneySearchModal] Invoking OnAttorneySelected");
         await OnAttorneySelected.InvokeAsync(attorneyInfo);
+        Console.WriteLine("[AttorneySearchModal] Invoked OnAttorneySelected");
+
+        // hide modal after invoking callback to avoid unmounting parent before it processes the event
         await JS.InvokeVoidAsync("HideModal", ModalId);
     }
 
     private async Task EnterManually()
     {
-        await OnManualEntry.InvokeAsync();
+        Console.WriteLine("[AttorneySearchModal] EnterManually invoked");
+        // hide modal immediately to avoid overlay/focus issues
         await JS.InvokeVoidAsync("HideModal", ModalId);
+        await OnManualEntry.InvokeAsync();
     }
 
     private async Task OnCancel()
     {
-        await OnCancelled.InvokeAsync();
+        Console.WriteLine("[AttorneySearchModal] OnCancel invoked");
         await JS.InvokeVoidAsync("HideModal", ModalId);
+        await OnCancelled.InvokeAsync();
     }
 }

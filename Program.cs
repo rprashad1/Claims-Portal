@@ -2,6 +2,7 @@ using ClaimsPortal.Components;
 using ClaimsPortal.Services;
 using Microsoft.EntityFrameworkCore;
 using ClaimsPortal.Data;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,9 @@ builder.Services.AddScoped<IAddressService, MockAddressService>();
 // For production with Geocodio API:
 // builder.Services.AddHttpClient<IAddressService, GeocodioAddressService>();
 
+// Coordinator for shared hospital search modal callbacks
+builder.Services.AddSingleton<HospitalSearchCoordinator>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -52,5 +56,26 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Minimal endpoint to receive client-side logs from the browser for debugging
+app.MapPost("/api/clientlogs", async (HttpRequest req) =>
+{
+    try
+    {
+        using var reader = new StreamReader(req.Body);
+        var body = await reader.ReadToEndAsync();
+        var logsDir = Path.Combine(app.Environment.ContentRootPath, "logs");
+        Directory.CreateDirectory(logsDir);
+        var filePath = Path.Combine(logsDir, "clientlogs.txt");
+        var entry = DateTime.UtcNow.ToString("o") + " " + body + Environment.NewLine;
+        await File.AppendAllTextAsync(filePath, entry);
+        return Results.Ok();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("ClientLogs error: " + ex);
+        return Results.StatusCode(500);
+    }
+});
 
 app.Run();

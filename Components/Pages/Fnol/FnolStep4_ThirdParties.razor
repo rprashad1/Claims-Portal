@@ -15,7 +15,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">Third Party Vehicles & Parties</h6>
                 <button type="button" class="btn btn-sm btn-outline-primary" @onclick="ShowAddThirdPartyModal">
-                    <i class="bi bi-plus-circle"></i> Add Third Party
+                    <i class="bi bi-plus-circle"></i> Add Third Party Vehicle
                 </button>
             </div>
         </div>
@@ -34,40 +34,97 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var party in ThirdParties)
+                            @* Render vehicles first with nested injured parties beneath each vehicle *@
+                            @foreach (var vehicle in ThirdParties.Where(p => p.Type == "Vehicle").ToList())
+                            {
+                                <tr class="align-middle">
+                                    <td>
+                                        <strong>@vehicle.Name</strong>
+                                        <div class="small text-muted mt-1">
+                                            @if (!string.IsNullOrEmpty(vehicle.Vehicle?.Vin))
+                                            {
+                                                <div>VIN: @vehicle.Vehicle.Vin</div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(vehicle.Vehicle?.PlateNumber) || !string.IsNullOrEmpty(vehicle.Vehicle?.PlateState))
+                                            {
+                                                <div>Plate: @vehicle.Vehicle?.PlateNumber @((!string.IsNullOrEmpty(vehicle.Vehicle?.PlateState)) ? ("/" + vehicle.Vehicle?.PlateState) : "")</div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(vehicle.Driver?.Name))
+                                            {
+                                                <div>Driver: @vehicle.Driver?.Name</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="text-muted">Driver: (not entered)</div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-info">@vehicle.Type</span></td>
+                                    <td>
+                                        @if (vehicle.WasInjured)
+                                        {
+                                            <span class="badge bg-danger">Yes</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (vehicle.HasAttorney)
+                                        {
+                                            <span class="badge bg-primary">Yes</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="@(() => AddFeatureForThirdParty(vehicle))" title="Add Feature">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="@(() => ShowAddInjuredPartyModal(vehicle))" title="Add Injured Party">
+                                            <i class="bi bi-person-plus"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info me-1" @onclick="@(() => EditThirdParty(vehicle))" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => RemoveThirdParty(vehicle.Name))" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                @* Injured parties (passengers/pedestrians/bicyclists) linked to this vehicle *@
+                                var linked = ThirdParties.Where(p => p.Type != "Vehicle" && !string.IsNullOrEmpty(p.SelectedVehicleVin) && p.SelectedVehicleVin == (vehicle.Vehicle?.Vin ?? string.Empty)).ToList();
+                                @if (linked.Any())
+                                {
+                                    foreach (var child in linked)
+                                    {
+                                        <tr class="table-active">
+                                            <td style="padding-left:32px;">&mdash; @child.Name
+                                                <div class="small text-muted mt-1">
+                                                    <div>@child.Type @if(!string.IsNullOrEmpty(child.SelectedVehicleVin)){<span class="text-muted">(Vin: @child.SelectedVehicleVin)</span>}</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="badge bg-secondary">@child.Type</span></td>
+                                            <td>@(child.WasInjured ? (MarkupString)"<span class=\"badge bg-danger\">Yes</span>" : null)</td>
+                                            <td>@(child.HasAttorney ? (MarkupString)"<span class=\"badge bg-primary\">Yes</span>" : null)</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-success me-1" @onclick="@(() => AddFeatureForThirdParty(child))" title="Add Feature">
+                                                    <i class="bi bi-plus-circle"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info me-1" @onclick="@(() => EditThirdParty(child))" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="@(() => RemoveThirdParty(child.Name))" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+
+                            @* Render non-vehicle parties that are not linked to any vehicle (standalone) *@
+                            @foreach (var party in ThirdParties.Where(p => p.Type != "Vehicle" && string.IsNullOrEmpty(p.SelectedVehicleVin)).ToList())
                             {
                                 <tr>
                                     <td>
                                         @party.Name
-                                        @if (party.Type == "Vehicle")
-                                            {
-                                                <div class="small text-muted mt-1">
-                                                    @if (!string.IsNullOrEmpty(party.Vehicle?.Vin))
-                                                    {
-                                                        <div>VIN: @party.Vehicle.Vin</div>
-                                                    }
-                                                    @if (!string.IsNullOrEmpty(party.Vehicle?.PlateNumber) || !string.IsNullOrEmpty(party.Vehicle?.PlateState))
-                                                    {
-                                                        <div>Plate: @party.Vehicle?.PlateNumber @((!string.IsNullOrEmpty(party.Vehicle?.PlateState)) ? ("/" + party.Vehicle?.PlateState) : "")</div>
-                                                    }
-                                                    @if (!string.IsNullOrEmpty(party.Driver?.Name))
-                                                    {
-                                                        <div>Driver: @party.Driver?.Name</div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="text-muted">Driver: (not entered)</div>
-                                                    }
-                                                </div>
-                                            }
-                                            @* If this is a passenger, show the assigned VIN and matching vehicle details (Year/Make/Model) *@
-                                        @if (party.Type == "Passenger" && !string.IsNullOrEmpty(party.SelectedVehicleVin))
-                                        {
-                                            var assigned = FindVehicleByVin(party.SelectedVehicleVin);
-                                            <div class="small text-muted mt-1">
-                                                <div>Assigned Vehicle: @party.SelectedVehicleVin @((assigned != null) ? ($" {assigned.Year}/{assigned.Make}/{assigned.Model}") : "")</div>
-                                            </div>
-                                        }
                                     </td>
                                     <td><span class="badge bg-info">@party.Type</span></td>
                                     <td>
@@ -219,8 +276,10 @@
     }
 </SectionCard>
 
-<ThirdPartyModal @ref="thirdPartyModal" OnThirdPartyAdded="OnThirdPartyAddedOrUpdated" OnCancelled="@(() => {})" 
+    <ThirdPartyModal @ref="thirdPartyModal" OnThirdPartyAdded="OnThirdPartyAddedOrUpdated" OnCancelled="@(() => {})" 
                  NatureOfInjuries="NatureOfInjuries" ThirdPartyVehicleVins="@GetThirdPartyVehicleVins()" />
+    <ThirdPartyVehicleModal @ref="thirdPartyVehicleModal" OnThirdPartyAdded="OnThirdPartyAddedOrUpdated" OnCancelled="@(() => {})" />
+    <AddInjuredPartyModal @ref="addInjuredPartyModal" OnInjuredPartyAdded="OnThirdPartyAddedOrUpdated" />
 <FeatureCreationModal @ref="featureCreationModal" 
                      OnFeatureCreated="OnFeatureCreated" 
                      OnCancelled="OnFeatureCreationCancelled"
@@ -250,6 +309,8 @@
     public List<PropertyDamage>? InitialPropertyDamages { get; set; }
 
     private ThirdPartyModal? thirdPartyModal;
+    private ThirdPartyVehicleModal? thirdPartyVehicleModal;
+    private AddInjuredPartyModal? addInjuredPartyModal;
     private FeatureCreationModal? featureCreationModal;
     private PropertyDamageModal? propertyDamageModal;
     private List<ThirdParty> ThirdParties = [];
@@ -312,8 +373,8 @@
     private async Task ShowAddThirdPartyModal()
     {
         EditingThirdParty = null;
-        if (thirdPartyModal != null)
-            await thirdPartyModal.ShowAsync();
+        if (thirdPartyVehicleModal != null)
+            await thirdPartyVehicleModal.ShowAsync();
     }
 
     private async Task EditThirdParty(ThirdParty party)
@@ -321,6 +382,12 @@
         EditingThirdParty = party;
         if (thirdPartyModal != null)
             await thirdPartyModal.ShowAsync(party);
+    }
+
+    private async Task ShowAddInjuredPartyModal(ThirdParty vehicle)
+    {
+        if (addInjuredPartyModal != null)
+            await addInjuredPartyModal.ShowAsync(vehicle);
     }
 
     private async Task AddFeatureForThirdParty(ThirdParty party)
@@ -513,6 +580,9 @@
     {
         CurrentPropertyDamage = null;
         CurrentThirdParty = null;
+        // If the Add Injured Party modal was left open (Save & Create Feature path), hide it now
+        if (addInjuredPartyModal != null)
+            await addInjuredPartyModal.HideAsync();
     }
 
     private void RemoveFeature(int id)

@@ -3,6 +3,7 @@
 @using ClaimsPortal.Components.Modals
 @inject IVendorSearchService VendorSearchService
 @inject IJSRuntime JS
+@inject ClaimsPortal.Services.HospitalSearchCoordinator HospitalSearchCoordinator
 
 <div class="injury-template-container">
     <!-- Injury Type Dropdown -->
@@ -182,12 +183,12 @@
     }
 </div>
 
-<!-- Hospital Search Modal -->
-<HospitalSearchModal @ref="hospitalSearchModal" 
-                     ModalId="@($"hospitalSearchModal_{UniqueId}")"
-                     OnHospitalSelected="OnHospitalSelectedFromSearch"
-                     OnManualEntry="OnHospitalManualEntry"
-                     OnCancelled="OnHospitalSearchCancelled" />
+<!-- Uses shared HospitalSearchModal (declared at app root).
+    Removed local per-instance modal to avoid duplicate IDs and simplify flow; will always
+    use the app-level shared modal via HospitalSearchCoordinator. -->
+
+@* Per-instance HospitalSearchModal — prefer using local instance when available *@
+<HospitalSearchModal @ref="hospitalSearchModal" ModalId="@($"injuryTemplateHospitalSearchModal_{UniqueId}")" OnHospitalSelected="OnHospitalSelectedFromSearch" OnManualEntry="OnHospitalManualEntry" OnCancelled="OnHospitalSearchCancelled" />
 
 @code {
     [Parameter]
@@ -202,11 +203,12 @@
     [Parameter]
     public string UniqueId { get; set; } = Guid.NewGuid().ToString("N")[..8];
 
-    private HospitalSearchModal? hospitalSearchModal;
+    // Use shared hospital search modal at app root via HospitalSearchCoordinator
     private long? SelectedHospitalEntityId;
     private bool ShowDuplicateWarning = false;
     private List<VendorSearchResult> DuplicateHospitals = new();
     private System.Timers.Timer? duplicateCheckTimer;
+    private HospitalSearchModal? hospitalSearchModal;
 
     protected override void OnInitialized()
     {
@@ -256,10 +258,18 @@
 
     private async Task OpenHospitalSearch()
     {
+        // Prefer a per-instance modal to keep events and lifecycle local (mirrors AddInjuredPartyModal)
         if (hospitalSearchModal != null)
         {
             await hospitalSearchModal.ShowAsync();
+            return;
         }
+
+        // fallback to shared modal behavior
+        HospitalSearchCoordinator.RegisterCallback(async (h) => await OnHospitalSelectedFromSearch(h));
+        await InvokeAsync(StateHasChanged);
+        try { await JS.InvokeVoidAsync("console.log", "OpenHospitalSearch invoked (shared)", UniqueId); } catch { }
+        await JS.InvokeVoidAsync("ShowModal", "hospitalSearchModal_shared");
     }
 
     private async Task OnHospitalSelectedFromSearch(HospitalInfo hospital)
