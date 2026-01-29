@@ -46,6 +46,9 @@ builder.Services.AddScoped<IClaimService, MockClaimService>();
 builder.Services.AddScoped<IAdjusterService, MockAdjusterService>();
 builder.Services.AddScoped<ILookupService, MockLookupService>();
 
+// Register Letter config store so components can read/write configured letter rules
+builder.Services.AddSingleton<LetterConfigStore>();
+
 // Register HttpClientFactory for components that need to make HTTP calls
 builder.Services.AddHttpClient();
 
