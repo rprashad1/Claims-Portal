@@ -237,7 +237,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Time of Loss</small>
-                                    <strong>@Claim.LossDetails.TimeOfLoss.ToString("hh\\:mm tt")</strong>
+                                    <strong>@(Claim!.LossDetails?.TimeOfLoss.ToString("hh\\:mm tt") ?? "")</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Date</small>
@@ -245,16 +245,16 @@
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Time</small>
-                                    <strong>@Claim.LossDetails.ReportTime.ToString("hh\\:mm tt")</strong>
+                                    <strong>@(Claim!.LossDetails?.ReportTime.ToString("hh\\:mm tt") ?? "")</strong>
                                 </div>
                             </div>
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <small class="text-muted d-block">Location</small>
-                                    <strong>@Claim.LossDetails.Location</strong>
-                                    @if (!string.IsNullOrEmpty(Claim.LossDetails.Location2))
+                                    <strong>@(Claim!.LossDetails?.Location ?? "")</strong>
+                                    @if (!string.IsNullOrEmpty(Claim!.LossDetails?.Location2))
                                     {
-                                        <br /><span class="text-muted">@Claim.LossDetails.Location2</span>
+                                        <br /><span class="text-muted">@Claim!.LossDetails?.Location2</span>
                                     }
                                 </div>
                                 <div class="col-md-3">
