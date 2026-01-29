@@ -55,6 +55,9 @@ builder.Services.AddHttpClient();
 // Register letter service (used for generating PDFs and rendering templates)
 builder.Services.AddScoped<LetterService>();
 
+// Register background worker to process letter generation queue
+builder.Services.AddHostedService<LetterGenerationWorker>();
+
 // Letter generation services removed: PDF generation and inline editing disabled per request
 // (LetterService, PdfFormService, ITextPdfFormService, LetterGenerationWorker unregistered)
 
@@ -136,6 +139,37 @@ app.MapPost("/api/clientlogs", async (HttpRequest req) =>
         app.Logger.LogError(ex, "ClientLogs error");
         return Results.StatusCode(500);
     }
+});
+
+// API: admin endpoints for letter generation queue
+app.MapGet("/api/letterqueue", async (ClaimsPortalDbContext db) =>
+{
+    var items = await db.LetterGenQueue
+        .OrderByDescending(q => q.CreatedAt)
+        .Select(q => new {
+            q.QueueId,
+            q.ClaimNumber,
+            q.SelectedRuleIds,
+            q.Status,
+            q.Tries,
+            q.CreatedAt,
+            q.LastAttemptAt,
+            q.LastError
+        }).ToListAsync();
+    return Results.Ok(items);
+});
+
+app.MapPost("/api/letterqueue/{id:int}/requeue", async (int id, ClaimsPortalDbContext db) =>
+{
+    var q = await db.LetterGenQueue.FirstOrDefaultAsync(x => x.QueueId == id);
+    if (q == null) return Results.NotFound();
+    q.Status = "Pending";
+    q.Tries = 0;
+    q.LastError = null;
+    q.LastAttemptAt = null;
+    q.CreatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 // --- Letter form endpoints: extract fields, save/load form-data, flatten to final PDF ---
