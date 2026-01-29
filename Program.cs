@@ -52,6 +52,14 @@ builder.Services.AddSingleton<LetterConfigStore>();
 // Register HttpClientFactory for components that need to make HTTP calls
 builder.Services.AddHttpClient();
 
+// Provide a default HttpClient for components with a BaseAddress set to the app's
+// current base URI so components can call relative API endpoints like "/api/...".
+builder.Services.AddScoped(sp =>
+{
+    var nav = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    return new System.Net.Http.HttpClient { BaseAddress = new Uri(nav.BaseUri) };
+});
+
 // Register letter service (used for generating PDFs and rendering templates)
 builder.Services.AddScoped<LetterService>();
 

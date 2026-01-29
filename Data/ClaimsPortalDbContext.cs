@@ -143,6 +143,28 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<SubClaim>()
                 .Property(s => s.Recoveries)
                 .HasPrecision(18, 2);
+
+            // Configure decimal precision for SubClaimAudit monetary fields (nullable decimals)
+            modelBuilder.Entity<SubClaimAudit>()
+                .Property(s => s.PreviousExpenseReserve)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<SubClaimAudit>()
+                .Property(s => s.PreviousIndemnityReserve)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<SubClaimAudit>()
+                .Property(s => s.NewExpenseReserve)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<SubClaimAudit>()
+                .Property(s => s.NewIndemnityReserve)
+                .HasPrecision(18, 2);
+
+            // Configure decimal precision for property damage estimates
+            modelBuilder.Entity<FnolPropertyDamage>()
+                .Property(p => p.EstimatedDamage)
+                .HasPrecision(18, 2);
         }
     }
 
