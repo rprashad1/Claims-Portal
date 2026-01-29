@@ -37,23 +37,23 @@
         <h5>@(IsNew ? "Create Rule" : "Edit Rule")</h5>
         <div class="mb-2">
             <label>Coverage</label>
-            <input class="form-control" @bind="SelectedRule.Coverage" />
+            <input class="form-control" @bind="SelectedRuleNonNull.Coverage" />
         </div>
         <div class="mb-2">
             <label>Claimant</label>
-            <input class="form-control" @bind="SelectedRule.Claimant" />
+            <input class="form-control" @bind="SelectedRuleNonNull.Claimant" />
         </div>
         <div class="mb-2 form-check">
-            <input type="checkbox" class="form-check-input" id="hasAttorney" @bind="SelectedRule.HasAttorney" />
+            <input type="checkbox" class="form-check-input" id="hasAttorney" @bind="SelectedRuleNonNull.HasAttorney" />
             <label class="form-check-label" for="hasAttorney">Has Attorney</label>
         </div>
         <div class="mb-2">
             <label>Document Name</label>
-            <input class="form-control" @bind="SelectedRule.DocumentName" />
+            <input class="form-control" @bind="SelectedRuleNonNull.DocumentName" />
         </div>
         <div class="mb-2">
             <label>Template File</label>
-            <select class="form-select" @bind="SelectedRule.TemplateFile">
+            <select class="form-select" @bind="SelectedRuleNonNull.TemplateFile">
                 <option value="">(none)</option>
                 @foreach (var t in Templates)
                 {
@@ -63,11 +63,11 @@
         </div>
         <div class="mb-2">
             <label>Mail To</label>
-            <input class="form-control" @bind="SelectedRule.MailTo" />
+            <input class="form-control" @bind="SelectedRuleNonNull.MailTo" />
         </div>
         <div class="mb-2">
             <label>Location (UNC or local path)</label>
-            <input class="form-control" @bind="SelectedRule.Location" />
+            <input class="form-control" @bind="SelectedRuleNonNull.Location" />
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-primary" @onclick="SaveRule">Save</button>
@@ -92,12 +92,13 @@
 @code {
     List<ClaimsPortal.Services.LetterRule> Rules = new();
     List<string> Templates = new();
-    ClaimsPortal.Services.LetterRule SelectedRule = new();
+    ClaimsPortal.Services.LetterRule SelectedRule = new ClaimsPortal.Services.LetterRule();
+    private ClaimsPortal.Services.LetterRule SelectedRuleNonNull => SelectedRule ??= new ClaimsPortal.Services.LetterRule();
     bool IsNew = false;
 
     protected override void OnInitialized()
     {
-        Rules = ConfigStore.GetAll().ToList();
+        Rules = (ConfigStore?.GetAll() ?? Array.Empty<ClaimsPortal.Services.LetterRule>()).ToList();
         LoadTemplates();
     }
 

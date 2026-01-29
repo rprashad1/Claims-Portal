@@ -698,6 +698,7 @@
 
     private async Task SearchAttorney()
     {
+        try { await JS.InvokeVoidAsync("console.log", "ThirdPartyModal.SearchAttorney invoked"); } catch { }
         if (attorneySearchModal != null)
         {
             await attorneySearchModal.ShowAsync();
@@ -916,14 +917,18 @@
     {
         if (IsFormValid())
         {
+            try { await JS.InvokeVoidAsync("console.log", "ThirdPartyModal.OnAdd invoked - valid", ThirdParty?.Name); } catch { }
             await OnThirdPartyAdded.InvokeAsync(ThirdParty);
             await JS.InvokeVoidAsync("HideModal", "thirdPartyModal");
+            try { await JS.InvokeVoidAsync("console.log", "ThirdPartyModal.OnAdd completed - modal hide requested"); } catch { }
         }
     }
 
     private async Task OnCancel()
     {
+        try { await JS.InvokeVoidAsync("console.log", "ThirdPartyModal.OnCancel invoked"); } catch { }
         await OnCancelled.InvokeAsync();
         await JS.InvokeVoidAsync("HideModal", "thirdPartyModal");
+        try { await JS.InvokeVoidAsync("console.log", "ThirdPartyModal.OnCancel completed - modal hide requested"); } catch { }
     }
 }

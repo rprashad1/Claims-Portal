@@ -258,6 +258,7 @@
 
     private async Task OpenHospitalSearch()
     {
+        try { await JS.InvokeVoidAsync("console.log", "OpenHospitalSearch invoked", UniqueId, hospitalSearchModal != null); } catch { }
         // Prefer a per-instance modal to keep events and lifecycle local (mirrors AddInjuredPartyModal)
         if (hospitalSearchModal != null)
         {

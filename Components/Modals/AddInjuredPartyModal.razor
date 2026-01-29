@@ -2,16 +2,118 @@
 @using ClaimsPortal.Components.Modals
 
 <div class="modal fade" id="addInjuredPartyModal" tabindex="-1" role="dialog" aria-labelledby="addInjuredPartyModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="addInjuredPartyModalLabel">Add Injured Party</h5>
                 <button type="button" class="btn-close" @onclick="OnCancel" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <!-- Simplified modal to avoid Razor parse issues during diagnostics -->
-                <div class="mb-2">Name: <input class="form-control" value="@(NewParty?.Name ?? string.Empty)" @oninput="e => { NewParty ??= new ThirdParty(); NewParty.Name = ((ChangeEventArgs)e).Value?.ToString() ?? string.Empty; }" /></div>
-                <div class="mb-2">Phone: <input class="form-control" value="@(NewParty?.PhoneNumber ?? string.Empty)" @oninput="e => { NewParty ??= new ThirdParty(); NewParty.PhoneNumber = ((ChangeEventArgs)e).Value?.ToString() ?? string.Empty; }" /></div>
+                <div class="mb-3">
+                    <label class="form-label">Party Type</label>
+                    <select class="form-select" @bind="NewParty.Type">
+                        <option value="Passenger">Passenger</option>
+                        <option value="Pedestrian">Pedestrian</option>
+                        <option value="Bicyclist">Bicyclist</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="NewParty.Name" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone</label>
+                        <input class="form-control" type="tel" @bind="NewParty.PhoneNumber" />
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input class="form-control" type="email" @bind="NewParty.Email" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">License #</label>
+                        <input class="form-control" @bind="NewParty.Driver!.LicenseNumber" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">License State</label>
+                        <input class="form-control" maxlength="2" @bind="NewParty.Driver!.LicenseState" />
+                    </div>
+                </div>
+
+                <div class="card mt-3 mb-3">
+                    <div class="card-header bg-light"><h6 class="mb-0">Address</h6></div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-12"><input class="form-control" placeholder="Street Address" @bind="NewParty.Address.StreetAddress" /></div>
+                        </div>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-6"><input class="form-control" placeholder="Address 2" @bind="NewParty.Address.AddressLine2" /></div>
+                            <div class="col-md-3"><input class="form-control" placeholder="City" @bind="NewParty.Address.City" /></div>
+                            <div class="col-md-1"><input class="form-control" placeholder="ST" maxlength="2" @bind="NewParty.Address.State" /></div>
+                            <div class="col-md-2"><input class="form-control" placeholder="Zip" @bind="NewParty.Address.ZipCode" /></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header bg-light"><h6 class="mb-0">Injury Details</h6></div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Injury Type</label>
+                                <select class="form-select" @bind="NewParty.InjuryInfo!.InjuryType">
+                                    <option value="">-- Select --</option>
+                                    @foreach (var t in Injury.GetInjuryTypes())
+                                    {
+                                        <option value="@t">@t</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Severity</label>
+                                <select class="form-select" @bind="NewParty.InjuryInfo!.SeverityLevel">
+                                    @foreach (var s in Injury.GetSeverityLevels())
+                                    {
+                                        <option value="@s.Value">@s.Label</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="NewParty.InjuryInfo!.IsFatality" />
+                                    <label class="form-check-label">Fatality</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-2">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" @bind="NewParty.InjuryInfo!.InjuryDescription"></textarea>
+                        </div>
+
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-outline-primary" @onclick="ShowHospitalSearch">Search Hospital</button>
+                            <input class="form-control" placeholder="Hospital Name" @bind="NewParty.InjuryInfo!.HospitalName" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="NewParty.HasAttorney" id="newPartyHasAttorney" />
+                        <label class="form-check-label" for="newPartyHasAttorney">Represented by Attorney</label>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-outline-primary" @onclick="ShowAttorneySearch">Search Attorney</button>
+                    <input class="form-control" placeholder="Attorney Name" @bind="NewParty.AttorneyInfo.Name" />
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
@@ -30,7 +132,9 @@
 
     private ThirdParty NewParty { get; set; } = new ThirdParty
     {
+        Type = "Passenger",
         Address = new Address(),
+        Driver = new DriverInfo { Address = new Address() },
         InjuryInfo = new Injury(),
         AttorneyInfo = new AttorneyInfo { Address = new Address() }
     };
@@ -40,6 +144,18 @@
 
     private AttorneySearchModal? attorneySearchModal;
     private HospitalSearchModal? hospitalSearchModal;
+
+    private async Task ShowAttorneySearch()
+    {
+        if (attorneySearchModal != null)
+            await attorneySearchModal.ShowAsync();
+    }
+
+    private async Task ShowHospitalSearch()
+    {
+        if (hospitalSearchModal != null)
+            await hospitalSearchModal.ShowAsync();
+    }
 
     protected override void OnInitialized()
     {
@@ -51,7 +167,7 @@
 
     public async Task ShowAsync(ThirdParty vehicle)
     {
-        NewParty = new ThirdParty { Type = "Passenger", Address = new Address(), InjuryInfo = new Injury(), AttorneyInfo = new AttorneyInfo { Address = new Address() } };
+        NewParty = new ThirdParty { Type = "Passenger", Address = new Address(), Driver = new DriverInfo { Address = new Address() }, InjuryInfo = new Injury(), AttorneyInfo = new AttorneyInfo { Address = new Address() } };
         await InvokeAsync(StateHasChanged);
         await JS.InvokeVoidAsync("ShowModal", "addInjuredPartyModal");
     }

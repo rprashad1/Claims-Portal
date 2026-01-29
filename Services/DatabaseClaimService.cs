@@ -504,8 +504,16 @@ namespace ClaimsPortal.Services
         {
             var claimantEntityMap = new Dictionary<string, long>();
 
+            // Ensure collections are non-null to avoid null-reference warnings
+            var witnesses = claim.LossDetails?.Witnesses ?? new List<Witness>();
+            var authorities = claim.LossDetails?.AuthoritiesNotified ?? new List<Authority>();
+            var passengers = claim.Passengers ?? new List<InsuredPassenger>();
+            var thirdParties = claim.ThirdParties ?? new List<ThirdParty>();
+            var propertyDamages = claim.PropertyDamages ?? new List<PropertyDamage>();
+            var subClaims = claim.SubClaims ?? new List<Models.SubClaim>();
+
             // Save witnesses
-            foreach (var witness in claim.LossDetails.Witnesses)
+            foreach (var witness in witnesses)
             {
                 var entity = new Data.EntityMaster
                 {
@@ -553,7 +561,7 @@ namespace ClaimsPortal.Services
             }
 
             // Save authorities
-            foreach (var authority in claim.LossDetails.AuthoritiesNotified)
+            foreach (var authority in authorities)
             {
                 // If UI provided an explicit VendorId (selected from Vendor Master), use it directly
                 if (authority.VendorId.HasValue)
@@ -912,7 +920,7 @@ namespace ClaimsPortal.Services
             }
 
             // Save passengers with full details
-            foreach (var passenger in claim.Passengers)
+            foreach (var passenger in passengers)
             {
                 var entity = new Data.EntityMaster
                 {
@@ -1067,7 +1075,7 @@ namespace ClaimsPortal.Services
             }
 
             // Save third parties with full details
-            foreach (var tp in claim.ThirdParties)
+            foreach (var tp in thirdParties)
             {
                 // Save third party attorney if provided (prefer VendorMaster)
                 long? tpAttorneyVendorId = null;
@@ -1410,7 +1418,7 @@ namespace ClaimsPortal.Services
             }
 
             // Save property damages
-            foreach (var pd in claim.PropertyDamages)
+            foreach (var pd in propertyDamages)
             {
                 // Create entity for property owner
                 var ownerEntity = new Data.EntityMaster
@@ -1481,7 +1489,7 @@ namespace ClaimsPortal.Services
                 ? fnol.ClaimNumber
                 : (!string.IsNullOrEmpty(fnol.FnolNumber) ? fnol.FnolNumber : $"F{fnol.FnolId}");
             var subclaimMappings = new List<(ClaimsPortal.Models.SubClaim sc, Data.SubClaim entity)>();
-            foreach (var sc in claim.SubClaims)
+            foreach (var sc in subClaims)
             {
                 var subClaim = new Data.SubClaim
                 {
@@ -1589,19 +1597,32 @@ namespace ClaimsPortal.Services
             _logger?.LogDebug("[DEBUG-AUTO-GEN] Loaded {RuleCount} candidate rules", rules.Count());
 
             var hasAttorney = (claim.DriverAttorney != null)
-                             || claim.Passengers.Any(p => p.HasAttorney)
-                             || claim.ThirdParties.Any(t => t.HasAttorney);
+                             || (claim.Passengers?.Any(p => p.HasAttorney) ?? false)
+                             || (claim.ThirdParties?.Any(t => t.HasAttorney) ?? false);
 
-            foreach (var sub in claim.SubClaims)
+            foreach (var sub in (claim.SubClaims ?? Enumerable.Empty<Models.SubClaim>()))
             {
-                _logger?.LogDebug("[DEBUG-AUTO-GEN] Processing SubClaim Feature={Feature} Coverage={Coverage} ClaimType={ClaimType} ClaimantName={ClaimantName}", sub.FeatureNumber, sub.Coverage, sub.ClaimType, sub.ClaimantName);
+                // Localize potentially-null sub fields to non-null locals to avoid dereference warnings
+                var subFeature = sub?.FeatureNumber ?? 0;
+                var subId = sub?.Id ?? 0;
+                var subCoverage = sub?.Coverage ?? string.Empty;
+                var subClaimType = sub?.ClaimType ?? string.Empty;
+                var subClaimantName = sub?.ClaimantName ?? string.Empty;
+                _logger?.LogDebug("[DEBUG-AUTO-GEN] Processing SubClaim Feature={Feature} Coverage={Coverage} ClaimType={ClaimType} ClaimantName={ClaimantName}", subFeature, subCoverage, subClaimType, subClaimantName);
                 foreach (var rule in rules)
                 {
-                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Evaluating Rule Id={RuleId} Name={DocName} Coverage={Coverage} Claimant={Claimant} HasAttorney={HasAttorney}", rule.Id, rule.DocumentName, rule.Coverage, rule.Claimant, rule.HasAttorney);
-                    if (!string.Equals(rule.Coverage, sub.Coverage, StringComparison.OrdinalIgnoreCase))
+                    var ruleId = rule?.Id ?? string.Empty;
+                    var docName = rule?.DocumentName ?? string.Empty;
+                    var ruleCoverage = rule?.Coverage ?? string.Empty;
+                    var ruleClaimant = rule?.Claimant ?? string.Empty;
+                    var ruleTemplate = rule?.TemplateFile ?? string.Empty;
+
+                    var ruleHasAttorney = rule?.HasAttorney ?? false;
+                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Evaluating Rule Id={RuleId} Name={DocName} Coverage={Coverage} Claimant={Claimant} HasAttorney={HasAttorney}", ruleId, docName, ruleCoverage, ruleClaimant, ruleHasAttorney);
+                    if (!string.Equals(ruleCoverage, subCoverage, StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    if (rule.HasAttorney != hasAttorney)
+                    if (ruleHasAttorney != hasAttorney)
                         continue;
 
                     bool claimantMatches = false;
@@ -1609,7 +1630,7 @@ namespace ClaimsPortal.Services
                     // "Insured Vehicle Driver" vs "InsuredDriver" vs "Insured Vehicle Driver"
                     static string NormalizeForMatch(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : Regex.Replace(s, "[^A-Za-z0-9]", "").ToLowerInvariant();
 
-                    var ruleClaimNorm = NormalizeForMatch(rule.Claimant);
+                    var ruleClaimNorm = NormalizeForMatch(ruleClaimant);
                     var subTypeNorm = NormalizeForMatch(sub?.ClaimType);
                     var subNameNorm = NormalizeForMatch(sub?.ClaimantName);
 
@@ -1629,21 +1650,21 @@ namespace ClaimsPortal.Services
 
                     if (!claimantMatches)
                     {
-                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} did not match claimant for SubFeature {Feature}", rule?.Id, sub?.FeatureNumber);
+                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} did not match claimant for SubFeature {Feature}", ruleId, sub?.FeatureNumber);
                         continue;
                     }
 
                     // Respect user's selection if provided
-                    if (selected != null && !selected.Contains(rule.Id))
+                    if (selected != null && !selected.Contains(ruleId))
                     {
-                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} skipped because not selected by user", rule?.Id);
+                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} skipped because not selected by user", ruleId);
                         continue;
                     }
 
-                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} matched and will be generated for SubFeature {Feature}", rule?.Id, sub?.FeatureNumber);
+                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} matched and will be generated for SubFeature {Feature}", ruleId, subFeature);
 
                     // Respect user's selection if provided
-                    if (selected != null && !selected.Contains(rule.Id))
+                    if (selected != null && !selected.Contains(ruleId))
                         continue;
 
                     var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -1654,7 +1675,7 @@ namespace ClaimsPortal.Services
                         { "ClaimantName", sub?.ClaimantName ?? string.Empty },
                         { "LossDate", claim.LossDetails != null ? claim.LossDetails.DateOfLoss.ToString("yyyy-MM-dd") : string.Empty },
                         { "LocationAddress", claim.LossDetails?.Location ?? string.Empty },
-                        { "AddresseeName", rule.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
+                        { "AddresseeName", rule?.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
                         { "AddresseeAddressLine1", claim.InsuredParty?.Address?.StreetAddress ?? string.Empty },
                         { "AddresseeAddressLine2", claim.InsuredParty?.Address?.AddressLine2 ?? string.Empty },
                         { "AddresseeCity", claim.InsuredParty?.Address?.City ?? string.Empty },
@@ -1663,8 +1684,8 @@ namespace ClaimsPortal.Services
                         { "AdjusterName", !string.IsNullOrEmpty(sub?.AssignedAdjusterName) ? sub.AssignedAdjusterName : "Claims Adjuster" },
                         { "AdjusterPhone", claim.PolicyInfo?.PhoneNumber ?? claim.InsuredParty?.PhoneNumber ?? string.Empty },
                         { "AdjusterEmail", claim.PolicyInfo?.ContactEmail ?? claim.InsuredParty?.Email ?? string.Empty },
-                        { "TemplateName", rule?.TemplateFile ?? string.Empty },
-                        { "RuleName", rule?.DocumentName ?? string.Empty },
+                        { "TemplateName", ruleTemplate },
+                        { "RuleName", docName },
                         { "GeneratedAt", DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm 'UTC'") }
                     };
 
@@ -1672,14 +1693,14 @@ namespace ClaimsPortal.Services
                     // If missing, derive a sensible fallback from the DocumentName. If none available,
                     // skip generation for this rule and log a warning.
                     string? templateName = null;
-                    if (!string.IsNullOrWhiteSpace(rule.TemplateFile))
+                    if (!string.IsNullOrWhiteSpace(ruleTemplate))
                     {
-                        templateName = rule.TemplateFile;
+                        templateName = ruleTemplate;
                     }
-                    else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+                    else if (!string.IsNullOrWhiteSpace(docName))
                     {
                         // Make a safe file name from the document name and assume .html
-                        var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                        var safe = string.Join("_", docName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
                         templateName = safe + ".html";
                     }
 
@@ -1694,11 +1715,12 @@ namespace ClaimsPortal.Services
                     var templatePath = Path.Combine(templatesDir, templateName);
                     if (!File.Exists(templatePath))
                     {
-                        _logger?.LogWarning("[DEBUG-AUTO-GEN] Template file '{TemplateName}' not found at '{TemplatePath}' for Rule {RuleId}; skipping.", templateName, templatePath, rule?.Id);
+                        _logger?.LogWarning("[DEBUG-AUTO-GEN] Template file '{TemplateName}' not found at '{TemplatePath}' for Rule {RuleId}; skipping.", templateName, templatePath, ruleId);
                         continue;
                     }
 
-                    var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : generatedDir;
+                    var ruleLocation = rule?.Location ?? string.Empty;
+                    var outDir = !string.IsNullOrWhiteSpace(ruleLocation) ? ruleLocation : generatedDir;
                     try
                     {
                         Directory.CreateDirectory(outDir);
@@ -1709,10 +1731,10 @@ namespace ClaimsPortal.Services
                         Directory.CreateDirectory(outDir);
                     }
 
-                        var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                        var safeDocName = string.Join("_", (docName ?? string.Empty).Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
                         // Prevent duplicate auto-generation for same claim/subclaim and document
                         var already = await db.LetterGenGeneratedDocuments
-                            .AnyAsync(d => d.ClaimNumber == claim.ClaimNumber && d.DocumentNumber == safeDocName && d.SubClaimFeatureNumber == sub.FeatureNumber);
+                            .AnyAsync(d => d.ClaimNumber == claim.ClaimNumber && d.DocumentNumber == safeDocName && d.SubClaimFeatureNumber == subFeature);
                         if (already)
                             continue;
 
@@ -1721,12 +1743,17 @@ namespace ClaimsPortal.Services
 
                         try
                         {
-                            _logger?.LogDebug("[DEBUG-AUTO-GEN] Generating template {Template} for Claim {ClaimNumber} SubFeature {SubFeature}", templateName, claim?.ClaimNumber, sub.FeatureNumber);
-                            await _letterService!.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
+                            _logger?.LogDebug("[DEBUG-AUTO-GEN] Generating template {Template} for Claim {ClaimNumber} SubFeature {SubFeature}", templateName, claim?.ClaimNumber, subFeature);
+                            if (_letterService == null)
+                            {
+                                _logger?.LogWarning("LetterService not available; skipping generation for Claim {ClaimNumber} Template {Template}", claim?.ClaimNumber, templateName);
+                                continue;
+                            }
+                            await _letterService.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
                         }
                         catch (Exception genEx)
                         {
-                            _logger?.LogWarning(genEx, "[DEBUG-AUTO-GEN] PDF generation failed for Claim {ClaimNumber} Template {Template} SubFeature {SubFeature}", claim?.ClaimNumber, templateName, sub.FeatureNumber);
+                            _logger?.LogWarning(genEx, "[DEBUG-AUTO-GEN] PDF generation failed for Claim {ClaimNumber} Template {Template} SubFeature {SubFeature}", claim?.ClaimNumber, templateName, subFeature);
                             continue;
                         }
 
@@ -1765,8 +1792,8 @@ namespace ClaimsPortal.Services
                                 Id = Guid.NewGuid(),
                                 RuleId = parsedRuleId,
                                 ClaimNumber = claim.ClaimNumber,
-                                SubClaimId = sub != null ? (long?)sub.Id : null,
-                                SubClaimFeatureNumber = sub.FeatureNumber,
+                                SubClaimId = subId > 0 ? (long?)subId : null,
+                                SubClaimFeatureNumber = subFeature,
                                 DocumentNumber = safeDocName,
                                 FileName = Path.GetFileName(outPath),
                                 StorageProvider = "filesystem",
@@ -1775,7 +1802,7 @@ namespace ClaimsPortal.Services
                                 ContentType = "application/pdf",
                                 FileSize = fi.Exists ? fi.Length : (long?)null,
                                 Sha256Hash = sha != null ? BitConverter.ToString(sha).Replace("-", string.Empty).ToLowerInvariant() : null,
-                                MailTo = rule.MailTo,
+                                MailTo = rule?.MailTo,
                                 MailStatus = null,
                                 CreatedBy = claim.CreatedBy ?? "system",
                                 CreatedAt = DateTimeOffset.UtcNow

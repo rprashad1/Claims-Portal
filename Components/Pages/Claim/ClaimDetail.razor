@@ -57,21 +57,21 @@
                             <small class="text-muted d-block">Claim Number</small>
                             <strong class="text-primary">@Claim.ClaimNumber</strong>
                         </div>
-                        <div class="col-md-2">
+                            <div class="col-md-2">
                             <small class="text-muted d-block">Date of Loss</small>
-                            <strong>@(Claim!.LossDetails?.DateOfLoss.ToString("MM/dd/yyyy") ?? "")</strong>
+                            <strong>@(Claim.LossDetails != null ? Claim.LossDetails.DateOfLoss.ToString("MM/dd/yyyy") : string.Empty)</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Date Reported</small>
-                            <strong>@(Claim!.LossDetails?.ReportDate.ToString("MM/dd/yyyy") ?? "")</strong>
+                            <strong>@(Claim.LossDetails != null ? Claim.LossDetails.ReportDate.ToString("MM/dd/yyyy") : string.Empty)</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Policy Number</small>
-                            <strong>@Claim.PolicyInfo.PolicyNumber</strong>
+                            <strong>@(Claim.PolicyInfo?.PolicyNumber ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Insured</small>
-                            <strong>@Claim.PolicyInfo.InsuredName</strong>
+                            <strong>@(Claim.PolicyInfo?.InsuredName ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Status</small>
@@ -136,7 +136,7 @@
             @if (ActiveTab == "subclaims")
             {
                 <div class="tab-pane fade show active">
-                    <SubClaimsSummaryGrid SubClaims="@Claim.SubClaims" OnSubClaimStatusChanged="RefreshClaimAsync" />
+                    <SubClaimsSummaryGrid SubClaims="@(Claim.SubClaims ?? new List<Models.SubClaim>())" OnSubClaimStatusChanged="RefreshClaimAsync" />
                 </div>
             }
 
@@ -185,9 +185,9 @@
                                         <label class="form-label">Select Sub-Claim / Feature</label>
                                         <select class="form-select" @bind="SelectedSubClaimId">
                                             <option value="">-- select --</option>
-                                            @foreach (var s in Claim.SubClaims)
+                                            @foreach (var s in (Claim.SubClaims ?? Enumerable.Empty<Models.SubClaim>()))
                                             {
-                                                <option value="@s.Id">Feature @s.FeatureNumber - @s.Coverage (@s.ClaimType)</option>
+                                                <option value="@s.Id">Feature @s.FeatureNumber - @(s.Coverage ?? string.Empty) (@(s.ClaimType ?? string.Empty))</option>
                                             }
                                         </select>
                                     </div>
@@ -198,7 +198,7 @@
                                             <option value="">-- select --</option>
                                             @foreach (var r in Rules)
                                             {
-                                                <option value="@r.Id">@r.DocumentName (@r.Coverage / @r.Claimant)</option>
+                                                <option value="@r.Id">@((r.DocumentName ?? string.Empty) + " (" + (r.Coverage ?? string.Empty) + " / " + (r.Claimant ?? string.Empty) + ")")</option>
                                             }
                                         </select>
                                     </div>
@@ -233,19 +233,19 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Date of Loss</small>
-                                    <strong>@(Claim!.LossDetails?.DateOfLoss.ToString("MM/dd/yyyy") ?? "")</strong>
+                                    <strong>@(Claim.LossDetails != null ? Claim.LossDetails.DateOfLoss.ToString("MM/dd/yyyy") : string.Empty)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Time of Loss</small>
-                                    <strong>@(Claim!.LossDetails?.TimeOfLoss.ToString("hh\\:mm tt") ?? "")</strong>
+                                    <strong>@(Claim.LossDetails != null ? Claim.LossDetails.TimeOfLoss.ToString("hh\\:mm tt") : string.Empty)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Date</small>
-                                    <strong>@(Claim!.LossDetails?.ReportDate.ToString("MM/dd/yyyy") ?? "")</strong>
+                                    <strong>@(Claim.LossDetails != null ? Claim.LossDetails.ReportDate.ToString("MM/dd/yyyy") : string.Empty)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Time</small>
-                                    <strong>@(Claim!.LossDetails?.ReportTime.ToString("hh\\:mm tt") ?? "")</strong>
+                                    <strong>@(Claim.LossDetails != null ? Claim.LossDetails.ReportTime.ToString("hh\\:mm tt") : string.Empty)</strong>
                                 </div>
                             </div>
                             <div class="row g-3 mb-3">
@@ -259,16 +259,16 @@
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Cause of Loss</small>
-                                    <strong>@Claim.LossDetails.CauseOfLoss</strong>
+                                    <strong>@(Claim.LossDetails?.CauseOfLoss ?? "")</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Weather Condition</small>
-                                    <strong>@Claim.LossDetails.WeatherCondition</strong>
+                                    <strong>@(Claim.LossDetails?.WeatherCondition ?? "")</strong>
                                 </div>
                             </div>
-                            <div class="mb-3">
+                                <div class="mb-3">
                                 <small class="text-muted d-block">Loss Description</small>
-                                <div class="border rounded p-2 bg-light">@Claim.LossDetails.LossDescription</div>
+                                <div class="border rounded p-2 bg-light">@(Claim.LossDetails?.LossDescription ?? "")</div>
                             </div>
                         </div>
                     </div>
@@ -282,21 +282,21 @@
                             <div class="row g-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Reported By</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.LossDetails.ReportedBy) ? "-" : Claim.LossDetails.ReportedBy)</strong>
+                                    <strong>@(Claim.LossDetails?.ReportedBy ?? "-")</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Reporting Method</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.LossDetails.ReportingMethod) ? "-" : Claim.LossDetails.ReportingMethod)</strong>
+                                    <strong>@(Claim.LossDetails?.ReportingMethod ?? "-")</strong>
                                 </div>
-                                @if (Claim.LossDetails.ReportedBy == "Other" && !string.IsNullOrEmpty(Claim.LossDetails.ReportedByName))
+                                @if ((Claim.LossDetails?.ReportedBy == "Other") && !string.IsNullOrEmpty(Claim.LossDetails?.ReportedByName))
                                 {
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">Reporter Name</small>
-                                        <strong>@Claim.LossDetails.ReportedByName</strong>
+                                        <strong>@(Claim.LossDetails?.ReportedByName ?? "")</strong>
                                     </div>
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">Reporter Phone</small>
-                                        <strong>@(string.IsNullOrEmpty(Claim.LossDetails.ReportedByPhone) ? "-" : Claim.LossDetails.ReportedByPhone)</strong>
+                                        <strong>@(string.IsNullOrEmpty(Claim.LossDetails?.ReportedByPhone) ? "-" : Claim.LossDetails?.ReportedByPhone)</strong>
                                     </div>
                                 }
                             </div>
@@ -312,20 +312,20 @@
                             <div class="row g-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Injuries Reported</small>
-                                    <span class="badge @(Claim.LossDetails.HasInjuries ? "bg-danger" : "bg-success") fs-6">
-                                        @(Claim.LossDetails.HasInjuries ? "Yes" : "No")
+                                    <span class="badge @((Claim.LossDetails?.HasInjuries ?? false) ? "bg-danger" : "bg-success") fs-6">
+                                        @((Claim.LossDetails?.HasInjuries ?? false) ? "Yes" : "No")
                                     </span>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Other Vehicles Involved</small>
-                                    <span class="badge @(Claim.LossDetails.HasOtherVehiclesInvolved ? "bg-warning text-dark" : "bg-success") fs-6">
-                                        @(Claim.LossDetails.HasOtherVehiclesInvolved ? "Yes" : "No")
+                                    <span class="badge @((Claim.LossDetails?.HasOtherVehiclesInvolved ?? false) ? "bg-warning text-dark" : "bg-success") fs-6">
+                                        @((Claim.LossDetails?.HasOtherVehiclesInvolved ?? false) ? "Yes" : "No")
                                     </span>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Property Damage</small>
-                                    <span class="badge @(Claim.LossDetails.HasPropertyDamage ? "bg-warning text-dark" : "bg-success") fs-6">
-                                        @(Claim.LossDetails.HasPropertyDamage ? "Yes" : "No")
+                                    <span class="badge @((Claim.LossDetails?.HasPropertyDamage ?? false) ? "bg-warning text-dark" : "bg-success") fs-6">
+                                        @((Claim.LossDetails?.HasPropertyDamage ?? false) ? "Yes" : "No")
                                     </span>
                                 </div>
                             </div>
@@ -333,11 +333,11 @@
                     </div>
 
                     <!-- Witnesses Section -->
-                    @if (Claim.LossDetails.Witnesses != null && Claim.LossDetails.Witnesses.Count > 0)
+                    @if ((Claim.LossDetails?.Witnesses?.Count ?? 0) > 0)
                     {
                         <div class="card mb-3">
                             <div class="card-header bg-light">
-                                <h6 class="mb-0"><i class="bi bi-eye me-2"></i>Witnesses (@Claim.LossDetails.Witnesses.Count)</h6>
+                                <h6 class="mb-0"><i class="bi bi-eye me-2"></i>Witnesses (@(Claim.LossDetails?.Witnesses?.Count ?? 0))</h6>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -351,7 +351,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var witness in Claim.LossDetails.Witnesses)
+                                            @foreach (var witness in (Claim.LossDetails?.Witnesses ?? Enumerable.Empty<Witness>()))
                                             {
                                                 <tr>
                                                     <td><strong>@witness.Name</strong></td>
@@ -377,11 +377,11 @@
                     }
 
                     <!-- Authorities Notified Section -->
-                    @if (Claim.LossDetails.AuthoritiesNotified != null && Claim.LossDetails.AuthoritiesNotified.Count > 0)
+                    @if ((Claim.LossDetails?.AuthoritiesNotified?.Count ?? 0) > 0)
                     {
                         <div class="card mb-3">
                             <div class="card-header bg-light">
-                                <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Authorities Notified (@Claim.LossDetails.AuthoritiesNotified.Count)</h6>
+                                <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Authorities Notified (@(Claim.LossDetails?.AuthoritiesNotified?.Count ?? 0))</h6>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -395,7 +395,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var authority in Claim.LossDetails.AuthoritiesNotified)
+                                            @foreach (var authority in (Claim.LossDetails?.AuthoritiesNotified ?? Enumerable.Empty<Authority>()))
                                             {
                                                 <tr>
                                                     <td><span class="badge bg-info">@authority.AuthorityName</span></td>
@@ -434,50 +434,50 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Insured Name</small>
-                                    <strong>@Claim.InsuredParty.Name</strong>
+                                    <strong>@(Claim.InsuredParty?.Name ?? string.Empty)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Business Type</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.BusinessType) ? "Individual" : Claim.InsuredParty.BusinessType)</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.BusinessType) ? "Individual" : Claim.InsuredParty?.BusinessType)</strong>
                                 </div>
-                                @if (!string.IsNullOrEmpty(Claim.InsuredParty.DoingBusinessAs))
+                                @if (!string.IsNullOrEmpty(Claim.InsuredParty?.DoingBusinessAs))
                                 {
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">Doing Business As</small>
-                                        <strong>@Claim.InsuredParty.DoingBusinessAs</strong>
+                                        <strong>@Claim.InsuredParty?.DoingBusinessAs</strong>
                                     </div>
                                 }
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Policy Number</small>
-                                    <strong>@Claim.PolicyInfo.PolicyNumber</strong>
+                                    <strong>@(Claim.PolicyInfo?.PolicyNumber ?? string.Empty)</strong>
                                 </div>
                             </div>
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Phone</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.PhoneNumber) ? "-" : FormatPhoneNumber(Claim.InsuredParty.PhoneNumber))</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.PhoneNumber) ? "-" : FormatPhoneNumber(Claim.InsuredParty?.PhoneNumber ?? string.Empty))</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Email</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.Email) ? "-" : Claim.InsuredParty.Email)</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.Email) ? "-" : Claim.InsuredParty?.Email)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">FEIN/SS#</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.FeinSsNumber) ? "-" : MaskSensitiveNumber(Claim.InsuredParty.FeinSsNumber))</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.FeinSsNumber) ? "-" : MaskSensitiveNumber(Claim.InsuredParty?.FeinSsNumber ?? string.Empty))</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Date of Birth</small>
-                                    <strong>@(Claim.InsuredParty.DateOfBirth != DateTime.MinValue ? Claim.InsuredParty.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
+                                    <strong>@((Claim.InsuredParty != null && Claim.InsuredParty.DateOfBirth != DateTime.MinValue) ? Claim.InsuredParty.DateOfBirth.ToString("MM/dd/yyyy") : "-")</strong>
                                 </div>
                             </div>
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">License Number</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.LicenseNumber) ? "-" : Claim.InsuredParty.LicenseNumber)</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.LicenseNumber) ? "-" : Claim.InsuredParty?.LicenseNumber)</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">License State</small>
-                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.LicenseState) ? "-" : Claim.InsuredParty.LicenseState)</strong>
+                                    <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.LicenseState) ? "-" : Claim.InsuredParty?.LicenseState)</strong>
                                 </div>
                             </div>
                             <!-- Insured Address -->
@@ -486,28 +486,28 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <small class="text-muted d-block">Street Address</small>
-                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.Address?.StreetAddress) ? "-" : Claim.InsuredParty.Address.StreetAddress)</strong>
+                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.Address?.StreetAddress) ? "-" : Claim.InsuredParty?.Address?.StreetAddress)</strong>
                                     </div>
-                                    @if (!string.IsNullOrEmpty(Claim.InsuredParty.Address?.AddressLine2))
+                                    @if (!string.IsNullOrEmpty(Claim.InsuredParty?.Address?.AddressLine2))
                                     {
                                         <div class="col-md-6">
                                             <small class="text-muted d-block">Address Line 2</small>
-                                            <strong>@Claim.InsuredParty.Address.AddressLine2</strong>
+                                            <strong>@Claim.InsuredParty?.Address?.AddressLine2</strong>
                                         </div>
                                     }
                                 </div>
                                 <div class="row g-3 mt-1">
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">City</small>
-                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.Address?.City) ? "-" : Claim.InsuredParty.Address.City)</strong>
+                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.Address?.City) ? "-" : Claim.InsuredParty?.Address?.City)</strong>
                                     </div>
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">State</small>
-                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.Address?.State) ? "-" : Claim.InsuredParty.Address.State)</strong>
+                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.Address?.State) ? "-" : Claim.InsuredParty?.Address?.State)</strong>
                                     </div>
                                     <div class="col-md-3">
                                         <small class="text-muted d-block">Zip Code</small>
-                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty.Address?.ZipCode) ? "-" : Claim.InsuredParty.Address.ZipCode)</strong>
+                                        <strong>@(string.IsNullOrEmpty(Claim.InsuredParty?.Address?.ZipCode) ? "-" : Claim.InsuredParty?.Address?.ZipCode)</strong>
                                     </div>
                                 </div>
                             </div>
@@ -1316,7 +1316,7 @@
             { "AddresseeCity", Claim.InsuredParty?.Address?.City ?? string.Empty },
             { "AddresseeState", Claim.InsuredParty?.Address?.State ?? string.Empty },
             { "AddresseePostalCode", Claim.InsuredParty?.Address?.ZipCode ?? string.Empty },
-            { "AddresseeSalutation", !string.IsNullOrEmpty(Claim.InsuredParty?.Name) ? ("Dear " + Claim.InsuredParty.Name.Split(' ')[0]) : "To whom it may concern" },
+            { "AddresseeSalutation", !string.IsNullOrEmpty(Claim.InsuredParty?.Name) ? ("Dear " + (Claim.InsuredParty?.Name?.Split(' ')[0] ?? string.Empty)) : "To whom it may concern" },
 
             // Adjuster / sender info
             { "AdjusterName", !string.IsNullOrEmpty(sub?.AssignedAdjusterName) ? sub.AssignedAdjusterName : "Claims Adjuster" },
@@ -1337,11 +1337,11 @@
             { "Agent City, State, Zip", Claim.InsuredParty?.Address?.GetCityStateZip() ?? string.Empty }
         };
 
-        var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+        var outDir = !string.IsNullOrWhiteSpace(rule?.Location) ? rule.Location : Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
         try { Directory.CreateDirectory(outDir); } catch { outDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters"); Directory.CreateDirectory(outDir); }
-
-        var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
-        var filename = $"{safeDocName}_{Claim.ClaimNumber}_F{sub.FeatureNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var docName = rule?.DocumentName ?? string.Empty;
+        var safeDocName = string.Join("_", docName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+        var filename = $"{safeDocName}_{Claim.ClaimNumber}_F{(sub?.FeatureNumber ?? 0)}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
         var outPath = Path.Combine(outDir, filename);
 
         try
@@ -1360,10 +1360,10 @@
                 var doc = new LetterGenGeneratedDocument
                 {
                     Id = Guid.NewGuid(),
-                    RuleId = rule.Id,
+                    RuleId = rule?.Id,
                     ClaimNumber = Claim.ClaimNumber,
-                    SubClaimId = sub.Id,
-                    SubClaimFeatureNumber = sub.FeatureNumber,
+                    SubClaimId = sub?.Id,
+                    SubClaimFeatureNumber = sub?.FeatureNumber ?? 0,
                     DocumentNumber = Claim.ClaimNumber,
                     FileName = Path.GetFileName(outPath),
                     StorageProvider = "filesystem",
@@ -1371,7 +1371,7 @@
                     Content = null,
                     ContentType = "application/pdf",
                     FileSize = fi.Exists ? fi.Length : (long?)null,
-                    MailTo = rule.MailTo,
+                    MailTo = rule?.MailTo,
                     CreatedBy = null,
                     CreatedAt = DateTimeOffset.UtcNow
                 };

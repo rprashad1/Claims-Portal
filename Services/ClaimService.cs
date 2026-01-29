@@ -78,7 +78,7 @@ public class MockClaimService : IClaimService
         }
 
         // Populate SubClaims if empty (for demo purposes)
-        if (claim.SubClaims.Count == 0)
+        if ((claim.SubClaims?.Count ?? 0) == 0)
         {
             PopulateSubClaims(claim);
         }
@@ -109,7 +109,7 @@ public class MockClaimService : IClaimService
         });
 
         // Sub-claim 2: PIP (Personal Injury Protection)
-        if (claim.Passengers.Count > 0)
+        if ((claim.Passengers?.Count ?? 0) > 0)
         {
             subClaims.Add(new SubClaim
             {
@@ -183,7 +183,7 @@ public class MockClaimService : IClaimService
 
     private async Task GenerateLettersForClaimAsync(Claim claim, IEnumerable<string>? selectedRuleIds = null)
     {
-        var rules = _configStore!.GetAll();
+    var rules = _configStore?.GetAll() ?? Array.Empty<LetterRule>();
         var generatedDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
         Directory.CreateDirectory(generatedDir);
 
@@ -194,23 +194,29 @@ public class MockClaimService : IClaimService
         }
 
         var hasAttorney = (claim.DriverAttorney != null)
-                         || claim.Passengers.Any(p => p.HasAttorney)
-                         || claim.ThirdParties.Any(t => t.HasAttorney);
+                 || (claim.Passengers?.Any(p => p.HasAttorney) ?? false)
+                 || (claim.ThirdParties?.Any(t => t.HasAttorney) ?? false);
 
-        foreach (var sub in claim.SubClaims)
+        foreach (var sub in (claim.SubClaims ?? Enumerable.Empty<SubClaim>()))
         {
-            foreach (var rule in rules)
+                foreach (var rule in rules)
             {
-                if (!string.Equals(rule.Coverage, sub.Coverage, StringComparison.OrdinalIgnoreCase))
+                    var ruleId = rule?.Id ?? string.Empty;
+                    var ruleTemplate = rule?.TemplateFile ?? string.Empty;
+                    var docName = rule?.DocumentName ?? string.Empty;
+                var ruleCoverage = rule?.Coverage ?? string.Empty;
+                var subCoverage = sub?.Coverage ?? string.Empty;
+                if (!string.Equals(ruleCoverage, subCoverage, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                if (rule.HasAttorney != hasAttorney)
+                var ruleHasAttorney = rule?.HasAttorney ?? false;
+                if (ruleHasAttorney != hasAttorney)
                     continue;
 
                 bool claimantMatches = false;
                 static string NormalizeForMatch(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : Regex.Replace(s, "[^A-Za-z0-9]", "").ToLowerInvariant();
 
-                var ruleClaimNorm = NormalizeForMatch(rule.Claimant);
+                var ruleClaimNorm = NormalizeForMatch(rule?.Claimant);
                 var subTypeNorm = NormalizeForMatch(sub?.ClaimType);
                 var subNameNorm = NormalizeForMatch(sub?.ClaimantName);
 
@@ -232,7 +238,7 @@ public class MockClaimService : IClaimService
                     continue;
 
                 // Respect user's selection if provided
-                if (selected != null && !selected.Contains(rule.Id))
+                if (selected != null && !selected.Contains(ruleId))
                     continue;
 
                 var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -243,7 +249,7 @@ public class MockClaimService : IClaimService
                     { "ClaimantName", sub?.ClaimantName ?? string.Empty },
                     { "LossDate", claim.LossDetails != null ? claim.LossDetails.DateOfLoss.ToString("yyyy-MM-dd") : string.Empty },
                     { "LocationAddress", claim.LossDetails?.Location ?? string.Empty },
-                    { "AddresseeName", rule.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
+                    { "AddresseeName", rule?.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
                     { "AddresseeAddressLine1", claim.InsuredParty?.Address?.StreetAddress ?? string.Empty },
                     { "AddresseeAddressLine2", claim.InsuredParty?.Address?.AddressLine2 ?? string.Empty },
                     { "AddresseeCity", claim.InsuredParty?.Address?.City ?? string.Empty },
@@ -259,13 +265,13 @@ public class MockClaimService : IClaimService
 
                 // Decide template: prefer explicit TemplateFile, else derive from DocumentName
                 string? templateName = null;
-                if (!string.IsNullOrWhiteSpace(rule.TemplateFile))
+                if (!string.IsNullOrWhiteSpace(ruleTemplate))
                 {
-                    templateName = rule.TemplateFile;
+                    templateName = ruleTemplate;
                 }
-                else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+                else if (!string.IsNullOrWhiteSpace(docName))
                 {
-                    var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                    var safe = string.Join("_", docName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
                     templateName = safe + ".html";
                 }
 
@@ -278,7 +284,7 @@ public class MockClaimService : IClaimService
                     continue;
                 }
 
-                var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : generatedDir;
+                var outDir = !string.IsNullOrWhiteSpace(rule?.Location) ? rule.Location : generatedDir;
                 try
                 {
                     Directory.CreateDirectory(outDir);
@@ -289,11 +295,17 @@ public class MockClaimService : IClaimService
                     Directory.CreateDirectory(outDir);
                 }
 
-                var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                var safeDocName = string.Join("_", (docName ?? string.Empty).Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
                 var filename = $"{safeDocName}_{claim.ClaimNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
                 var outPath = Path.Combine(outDir, filename);
 
-                await _letterService!.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
+                if (_letterService == null)
+                {
+                    // LetterService not available in mock context; skip generation
+                    continue;
+                }
+
+                await _letterService.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
 
                 var copyTo = Path.Combine(generatedDir, Path.GetFileName(outPath));
                 try

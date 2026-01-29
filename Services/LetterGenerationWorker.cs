@@ -65,7 +65,7 @@ OUTPUT inserted.QueueId, inserted.ClaimNumber, inserted.SelectedRuleIds, inserte
                                 QueueId = reader.GetInt64(0),
                                 ClaimNumber = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                                 SelectedRuleIds = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                Status = reader.IsDBNull(3) ? null : reader.GetString(3),
+                                Status = reader.IsDBNull(3) ? "Pending" : reader.GetString(3),
                                 Tries = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
                                 CreatedAt = reader.IsDBNull(5) ? DateTimeOffset.UtcNow : reader.GetFieldValue<DateTimeOffset>(5),
                                 LastAttemptAt = reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6),

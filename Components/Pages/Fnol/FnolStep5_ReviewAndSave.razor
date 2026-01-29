@@ -22,18 +22,18 @@
                         <small class="text-muted d-block">FNOL Number</small>
                         <strong>@ClaimData.ClaimNumber</strong>
                     </div>
-                    <div class="col-md-3">
-                        <small class="text-muted d-block">Policy Number</small>
-                        <strong>@ClaimData.PolicyInfo.PolicyNumber</strong>
-                    </div>
-                    <div class="col-md-3">
-                        <small class="text-muted d-block">Date of Loss</small>
-                        <strong>@ClaimData.LossDetails.DateOfLoss.ToString("MM/dd/yyyy")</strong>
-                    </div>
-                    <div class="col-md-3">
-                        <small class="text-muted d-block">Status</small>
-                        <span class="badge @GetStatusBadgeClass(ClaimData.Status)">@(string.IsNullOrEmpty(ClaimData.Status) ? "Open" : ClaimData.Status)</span>
-                    </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">Policy Number</small>
+                            <strong>@(ClaimData.PolicyInfo?.PolicyNumber ?? string.Empty)</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">Date of Loss</small>
+                            <strong>@(ClaimData.LossDetails != null ? ClaimData.LossDetails.DateOfLoss.ToString("MM/dd/yyyy") : string.Empty)</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted d-block">Status</small>
+                            <span class="badge @GetStatusBadgeClass(ClaimData.Status)">@(string.IsNullOrEmpty(ClaimData.Status) ? "Open" : ClaimData.Status)</span>
+                        </div>
                 </div>
             </div>
         </div>
@@ -72,76 +72,76 @@
                     <div class="row g-3 mb-3">
                         <div class="col-md-3">
                             <small class="text-muted d-block">Date of Loss</small>
-                            <strong>@ClaimData.LossDetails.DateOfLoss.ToString("MM/dd/yyyy")</strong>
+                            <strong>@(ClaimData.LossDetails != null ? ClaimData.LossDetails.DateOfLoss.ToString("MM/dd/yyyy") : string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Time of Loss</small>
-                            <strong>@ClaimData.LossDetails.TimeOfLoss.ToString(@"hh\:mm")</strong>
+                            <strong>@(ClaimData.LossDetails != null ? ClaimData.LossDetails.TimeOfLoss.ToString(@"hh\:mm") : string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Report Date</small>
-                            <strong>@ClaimData.LossDetails.ReportDate.ToString("MM/dd/yyyy")</strong>
+                            <strong>@(ClaimData.LossDetails != null ? ClaimData.LossDetails.ReportDate.ToString("MM/dd/yyyy") : string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Report Time</small>
-                            <strong>@ClaimData.LossDetails.ReportTime.ToString(@"hh\:mm")</strong>
+                            <strong>@(ClaimData.LossDetails != null ? ClaimData.LossDetails.ReportTime.ToString(@"hh\:mm") : string.Empty)</strong>
                         </div>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <small class="text-muted d-block">Location of Loss</small>
-                            <strong>@ClaimData.LossDetails.Location</strong>
-                            @if (!string.IsNullOrEmpty(ClaimData.LossDetails.Location2))
+                            <strong>@(ClaimData.LossDetails?.Location ?? string.Empty)</strong>
+                            @if (!string.IsNullOrEmpty(ClaimData.LossDetails?.Location2))
                             {
-                                <br/><span class="text-muted">Secondary: @ClaimData.LossDetails.Location2</span>
+                                <br/><span class="text-muted">Secondary: @(ClaimData.LossDetails?.Location2 ?? string.Empty)</span>
                             }
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Cause of Loss</small>
-                            <strong>@ClaimData.LossDetails.CauseOfLoss</strong>
+                            <strong>@(ClaimData.LossDetails?.CauseOfLoss ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Weather</small>
-                            <strong>@ClaimData.LossDetails.WeatherCondition</strong>
+                            <strong>@(ClaimData.LossDetails?.WeatherCondition ?? string.Empty)</strong>
                         </div>
                     </div>
                     <div class="mb-3">
                         <small class="text-muted d-block">Description</small>
-                        <p class="mb-0">@ClaimData.LossDetails.LossDescription</p>
+                        <p class="mb-0">@(ClaimData.LossDetails?.LossDescription ?? string.Empty)</p>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <small class="text-muted d-block">Reported By</small>
-                            <strong>@ClaimData.LossDetails.ReportedBy</strong>
-                            @if (ClaimData.LossDetails.ReportedBy == "Other" && !string.IsNullOrEmpty(ClaimData.LossDetails.ReportedByName))
+                            <strong>@(ClaimData.LossDetails?.ReportedBy ?? string.Empty)</strong>
+                            @if ((ClaimData.LossDetails?.ReportedBy == "Other") && !string.IsNullOrEmpty(ClaimData.LossDetails?.ReportedByName))
                             {
-                                <span> - @ClaimData.LossDetails.ReportedByName</span>
+                                <span> - @(ClaimData.LossDetails?.ReportedByName ?? string.Empty)</span>
                             }
                         </div>
                         <div class="col-md-4">
                             <small class="text-muted d-block">Other Vehicles</small>
-                            <span class="badge @(ClaimData.LossDetails.HasOtherVehiclesInvolved ? "bg-warning" : "bg-secondary")">@(ClaimData.LossDetails.HasOtherVehiclesInvolved ? "Yes" : "No")</span>
+                            <span class="badge @((ClaimData.LossDetails?.HasOtherVehiclesInvolved ?? false) ? "bg-warning" : "bg-secondary")">@((ClaimData.LossDetails?.HasOtherVehiclesInvolved ?? false) ? "Yes" : "No")</span>
                         </div>
                         <div class="col-md-4">
                             <small class="text-muted d-block">Injuries</small>
-                            <span class="badge @(ClaimData.LossDetails.HasInjuries ? "bg-danger" : "bg-secondary")">@(ClaimData.LossDetails.HasInjuries ? "Yes" : "No")</span>
+                            <span class="badge @((ClaimData.LossDetails?.HasInjuries ?? false) ? "bg-danger" : "bg-secondary")">@((ClaimData.LossDetails?.HasInjuries ?? false) ? "Yes" : "No")</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- WITNESSES SECTION -->
-            @if (ClaimData.LossDetails.Witnesses.Count > 0)
+            @if ((ClaimData.LossDetails?.Witnesses?.Any()) ?? false)
             {
                 <div class="card mb-3">
-                    <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-people me-2"></i>Witnesses (@ClaimData.LossDetails.Witnesses.Count)</h6></div>
+                    <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-people me-2"></i>Witnesses (@(ClaimData.LossDetails?.Witnesses?.Count ?? 0))</h6></div>
                     <div class="card-body">
                         <table class="table table-sm">
                             <thead class="table-light">
                                 <tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr>
                             </thead>
                             <tbody>
-                                @foreach (var witness in ClaimData.LossDetails.Witnesses)
+                                @foreach (var witness in (ClaimData.LossDetails?.Witnesses ?? Enumerable.Empty<Witness>()))
                                 {
                                     <tr>
                                         <td>@witness.Name</td>
@@ -166,17 +166,17 @@
             }
 
             <!-- AUTHORITIES SECTION -->
-            @if (ClaimData.LossDetails.AuthoritiesNotified.Count > 0)
+            @if ((ClaimData.LossDetails?.AuthoritiesNotified?.Count ?? 0) > 0)
             {
                 <div class="card mb-3">
-                    <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-shield me-2"></i>Authorities Notified (@ClaimData.LossDetails.AuthoritiesNotified.Count)</h6></div>
+                    <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-shield me-2"></i>Authorities Notified (@(ClaimData.LossDetails?.AuthoritiesNotified?.Count ?? 0))</h6></div>
                     <div class="card-body">
                         <table class="table table-sm">
                             <thead class="table-light">
                                 <tr><th>Authority Type</th><th>Name</th><th>Report #</th><th>Address</th></tr>
                             </thead>
                             <tbody>
-                                @foreach (var authority in ClaimData.LossDetails.AuthoritiesNotified)
+                                @foreach (var authority in (ClaimData.LossDetails?.AuthoritiesNotified ?? Enumerable.Empty<Authority>()))
                                 {
                                     <tr>
                                         <td>@authority.AuthorityName</td>
@@ -209,35 +209,35 @@
                     <div class="row g-3 mb-3">
                         <div class="col-md-3">
                             <small class="text-muted d-block">Policy Number</small>
-                            <strong>@ClaimData.PolicyInfo.PolicyNumber</strong>
+                            <strong>@(ClaimData.PolicyInfo?.PolicyNumber ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Renewal</small>
-                            <strong>@ClaimData.PolicyInfo.RenewalNumber</strong>
+                            <strong>@(ClaimData.PolicyInfo?.RenewalNumber ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Effective</small>
-                            <strong>@ClaimData.PolicyInfo.EffectiveDate.ToString("MM/dd/yyyy")</strong>
+                            <strong>@(ClaimData.PolicyInfo != null ? ClaimData.PolicyInfo.EffectiveDate.ToString("MM/dd/yyyy") : string.Empty)</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Status</small>
-                            <span class="badge @GetPolicyStatusBadge(ClaimData.PolicyInfo.Status)">@ClaimData.PolicyInfo.Status</span>
+                            <span class="badge @GetPolicyStatusBadge(ClaimData.PolicyInfo?.Status ?? string.Empty)">@(ClaimData.PolicyInfo?.Status ?? string.Empty)</span>
                         </div>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <small class="text-muted d-block">Insured Name</small>
-                            <strong>@ClaimData.PolicyInfo.InsuredName</strong>
+                            <strong>@(ClaimData.PolicyInfo?.InsuredName ?? string.Empty)</strong>
                         </div>
                         <div class="col-md-6">
                             <small class="text-muted d-block">Phone</small>
-                            <strong>@FormatPhoneNumber(ClaimData.PolicyInfo.PhoneNumber)</strong>
+                            <strong>@FormatPhoneNumber(ClaimData.PolicyInfo?.PhoneNumber)</strong>
                         </div>
                     </div>
                     <div class="row g-3">
                         <div class="col-12">
                             <small class="text-muted d-block">Address</small>
-                            <strong>@ClaimData.PolicyInfo.Address, @ClaimData.PolicyInfo.City, @ClaimData.PolicyInfo.State @ClaimData.PolicyInfo.ZipCode</strong>
+                            <strong>@(ClaimData.PolicyInfo != null ? ($"{ClaimData.PolicyInfo.Address}, {ClaimData.PolicyInfo.City}, {ClaimData.PolicyInfo.State} {ClaimData.PolicyInfo.ZipCode}") : string.Empty)</strong>
                         </div>
                     </div>
                 </div>
@@ -453,12 +453,12 @@
             }
 
             <!-- PASSENGERS -->
-            @if (ClaimData.Passengers.Count > 0)
+            @if (ClaimData.Passengers?.Any() ?? false)
             {
                 <div class="card">
                     <div class="card-header bg-light"><h6 class="mb-0">Passengers (@ClaimData.Passengers.Count)</h6></div>
                     <div class="card-body">
-                        @foreach (var p in ClaimData.Passengers)
+                        @foreach (var p in (ClaimData.Passengers ?? Enumerable.Empty<InsuredPassenger>()))
                         {
                             <div class="border rounded p-3 mb-3">
                                 <div class="row g-3 mb-2">
@@ -517,9 +517,9 @@
 
         <!-- THIRD PARTIES TAB -->
         <div class="tab-pane fade" id="thirdPartyContent" role="tabpanel">
-            @if (ClaimData.ThirdParties.Count > 0)
+            @if (ClaimData.ThirdParties?.Any() ?? false)
             {
-                @foreach (var party in ClaimData.ThirdParties)
+                @foreach (var party in (ClaimData.ThirdParties ?? Enumerable.Empty<ThirdParty>()))
                 {
                     <div class="card mb-3">
                         <div class="card-header bg-light d-flex justify-content-between">
@@ -568,13 +568,13 @@
                             <!-- Assigned Vehicle for non-vehicle parties (passenger/pedestrian/bicyclist) -->
                             @if (!string.IsNullOrEmpty(party.SelectedVehicleVin) && party.Type != "Vehicle")
                             {
-                                var assigned = ClaimData.ThirdParties.FirstOrDefault(x => x.Type == "Vehicle" && x.Vehicle != null && x.Vehicle.Vin == party.SelectedVehicleVin);
+                                var assigned = (ClaimData.ThirdParties ?? Enumerable.Empty<ThirdParty>()).FirstOrDefault(x => x.Type == "Vehicle" && x.Vehicle != null && x.Vehicle.Vin == party.SelectedVehicleVin);
                                 <div class="border-top pt-3 mt-3">
                                     <h6 class="text-muted mb-3"><i class="bi bi-car-front me-2"></i>Assigned Vehicle</h6>
                                     <div class="row g-3 mb-3">
                                         <div class="col-md-6">
                                             <small class="text-muted d-block">Vehicle</small>
-                                            <strong>@(assigned != null ? $"{assigned.Vehicle.Year} {assigned.Vehicle.Make} {assigned.Vehicle.Model}" : "(vehicle not found)")</strong>
+                                            <strong>@(assigned != null ? $"{(assigned.Vehicle?.Year ?? 0)} {assigned.Vehicle?.Make ?? string.Empty} {assigned.Vehicle?.Model ?? string.Empty}" : "(vehicle not found)")</strong>
                                         </div>
                                         <div class="col-md-6">
                                             <small class="text-muted d-block">VIN</small>
