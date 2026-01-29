@@ -3,6 +3,7 @@
 @using ClaimsPortal.Services
 @using ClaimsPortal.Data
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Logging
 @rendermode InteractiveServer
 
 <div class="container-fluid py-4">
@@ -84,7 +85,10 @@
     private IDatabaseClaimService DatabaseClaimService { get; set; } = null!;
     
     [Inject]
-    private ClaimsPortalDbContext DbContext { get; set; } = null!;
+    private IDatabaseEntityService EntityService { get; set; } = null!;
+
+    [Inject]
+    private ILogger<SubClaimView> Logger { get; set; } = null!;
 
     [Inject]
     private NavigationManager NavigationManager { get; set; } = null!;
@@ -114,16 +118,16 @@
         {
             if (!string.IsNullOrEmpty(ClaimNumber))
             {
-                Console.WriteLine($"[SubClaimView] Loading claim: {ClaimNumber}");
+                Logger.LogDebug("[SubClaimView] Loading claim: {ClaimNumber}", ClaimNumber);
                 Claim = await DatabaseClaimService.GetClaimWithDetailsAsync(ClaimNumber);
                 
                 // Debug: Log sub-claims count
                 if (Claim != null)
                 {
-                    Console.WriteLine($"[SubClaimView] Claim {ClaimNumber} loaded. SubClaims count: {Claim.SubClaims.Count}");
+                    Logger.LogDebug("[SubClaimView] Claim {ClaimNumber} loaded. SubClaims count: {Count}", ClaimNumber, Claim.SubClaims.Count);
                     foreach (var sc in Claim.SubClaims)
                     {
-                        Console.WriteLine($"[SubClaimView]   - Feature {sc.FeatureNumber}: {sc.Coverage} - {sc.ClaimantName}");
+                        Logger.LogDebug("[SubClaimView]   - Feature {FeatureNumber}: {Coverage} - {ClaimantName}", sc.FeatureNumber, sc.Coverage, sc.ClaimantName);
                     }
                     DebugMessage = $"Claim loaded successfully. SubClaims count: {Claim.SubClaims.Count}";
                     
@@ -132,18 +136,18 @@
                 }
                 else
                 {
-                    Console.WriteLine($"[SubClaimView] Claim not found for: {ClaimNumber}");
+                    Logger.LogWarning("[SubClaimView] Claim not found for: {ClaimNumber}", ClaimNumber);
                     DebugMessage = "Claim not found.";
                 }
             }
             else
             {
-                Console.WriteLine("[SubClaimView] ClaimNumber is null or empty");
+                Logger.LogDebug("[SubClaimView] ClaimNumber is null or empty");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SubClaimView] Error loading claim: {ex.Message}");
+            Logger.LogError(ex, "[SubClaimView] Error loading claim");
             Claim = null;
             DebugMessage = $"Error loading claim: {ex.Message}";
         }
@@ -159,24 +163,16 @@
     {
         try
         {
-            // Find the FNOL by claim number or FNOL number
-            var fnol = await DbContext.FNOLs
-                .FirstOrDefaultAsync(f => f.ClaimNumber == ClaimNumber || f.FnolNumber == ClaimNumber);
-            
-            if (fnol != null)
+            // Use the already-loaded Claim model for debug info when available
+            if (Claim != null)
             {
-                DatabaseFnolId = fnol.FnolId;
-                
-                // Count sub-claims directly from database
-                DatabaseSubClaimsCount = await DbContext.SubClaims
-                    .CountAsync(sc => sc.FnolId == fnol.FnolId);
-                
-                DebugMessage = $"FNOL found with ID: {fnol.FnolId}, Status: {fnol.FnolStatus}, " +
-                              $"Database SubClaims: {DatabaseSubClaimsCount}";
+                DatabaseFnolId = 0; // FnolId not present on the UI model
+                DatabaseSubClaimsCount = Claim.SubClaims?.Count ?? 0;
+                DebugMessage = $"Claim model SubClaims: {DatabaseSubClaimsCount}";
             }
             else
             {
-                DebugMessage = $"No FNOL found for ClaimNumber: {ClaimNumber}";
+                DebugMessage = $"No Claim model available for ClaimNumber: {ClaimNumber}";
             }
         }
         catch (Exception ex)

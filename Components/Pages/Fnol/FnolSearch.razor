@@ -4,6 +4,7 @@
 @rendermode InteractiveServer
 @using ClaimsPortal.Services
 @using ClaimsPortal.Data
+@using Microsoft.AspNetCore.Components.Routing
 @inject IDatabaseClaimService ClaimService
 @inject NavigationManager NavigationManager
 
@@ -290,12 +291,18 @@
 
     protected override void OnInitialized()
     {
-        // Determine default search mode based on the URL
+        base.OnInitialized();
+
+        // Set initial mode based on the current URL and subscribe
+        SetModeFromUri();
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void SetModeFromUri()
+    {
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         var path = uri.AbsolutePath.ToLower();
-        
-        // If accessed via /claims/search, default to Claims mode
-        // If accessed via /fnol or /fnol/search, default to FNOL mode
+
         if (path.StartsWith("/claims/search"))
         {
             SearchMode = "Claims";
@@ -304,6 +311,12 @@
         {
             SearchMode = "FNOL";
         }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        SetModeFromUri();
+        InvokeAsync(StateHasChanged);
     }
 
     private void SetSearchMode(string mode)
@@ -427,5 +440,10 @@
     private void ViewClaim(string claimNumber)
     {
         NavigationManager.NavigateTo($"/claim/{claimNumber}");
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

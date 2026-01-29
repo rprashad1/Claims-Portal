@@ -221,7 +221,11 @@
             {
                 CurrentFnolNumber = fnolNumber;
                 CurrentClaim = claim;
-                CurrentClaim.ClaimNumber = fnolNumber;
+                // Only set the displayed claim number to the FNOL when the claim DTO doesn't already contain a ClaimNumber
+                if (string.IsNullOrEmpty(CurrentClaim.ClaimNumber))
+                {
+                    CurrentClaim.ClaimNumber = fnolNumber;
+                }
                 // Diagnostic log: print number of property damages loaded for debugging
                 Console.WriteLine($"[DEBUG] Loaded claim {fnolNumber} with PropertyDamages.Count={CurrentClaim.PropertyDamages?.Count}");
                 
@@ -543,7 +547,8 @@
                 {
                     ClaimData = CurrentClaim,
                     CreatedBy = "system_user",
-                    FnolNumber = CurrentFnolNumber  // Pass FNOL number for update
+                    FnolNumber = CurrentFnolNumber,  // Pass FNOL number for update
+                    SelectedLetterRuleIds = step5Component?.GetSelectedLetterRuleIds()
                 };
 
                 var createdFnol = await DatabaseClaimService.SaveCompleteFnolAsync(request);

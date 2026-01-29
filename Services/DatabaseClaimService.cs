@@ -1,6 +1,14 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using ClaimsPortal.Data;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using ClaimsPortal.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace ClaimsPortal.Services
 {
@@ -12,6 +20,10 @@ namespace ClaimsPortal.Services
         public Claim ClaimData { get; set; } = new();
         public string CreatedBy { get; set; } = string.Empty;
         public string? FnolNumber { get; set; }
+        // New: list of selected letter rule Ids (from the FNOL review letters page)
+        public List<string>? SelectedLetterRuleIds { get; set; } = new List<string>();
+        
+        
     }
 
     /// <summary>
@@ -61,15 +73,60 @@ namespace ClaimsPortal.Services
         // Claimant Operations
         Task<Data.Claimant> AddClaimantAsync(Data.Claimant claimant);
         Task<List<Data.Claimant>> GetClaimantsAsync(long fnolId);
+        // Enqueue/Generate letters for a claim (worker calls this)
+        Task GenerateLettersForClaimAsync(string claimNumber, IEnumerable<string>? selectedRuleIds = null);
     }
 
     public class DatabaseClaimService : IDatabaseClaimService
     {
         private readonly ClaimsPortalDbContext _context;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext>? _contextFactory;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ILogger<DatabaseClaimService> _logger;
+        private readonly LetterService? _letterService;
+        private readonly LetterConfigStore? _configStore;
 
-        public DatabaseClaimService(ClaimsPortalDbContext context)
+        public DatabaseClaimService(ClaimsPortalDbContext context, IServiceScopeFactory scopeFactory, ILogger<DatabaseClaimService> logger, Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext>? contextFactory = null, LetterService? letterService = null, LetterConfigStore? configStore = null)
         {
             _context = context;
+            _contextFactory = contextFactory;
+            _scopeFactory = scopeFactory;
+            _logger = logger;
+            _letterService = letterService;
+            _configStore = configStore;
+        }
+
+        // Public wrapper so background workers can request generation via the service interface
+        public async Task GenerateLettersForClaimAsync(string claimNumber, IEnumerable<string>? selectedRuleIds = null)
+        {
+            if (string.IsNullOrWhiteSpace(claimNumber))
+            {
+                _logger?.LogWarning("GenerateLettersForClaimAsync called with empty claimNumber");
+                return;
+            }
+
+            Claim? claimDto = null;
+            try
+            {
+                claimDto = await GetClaimWithDetailsAsync(claimNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to load claim {ClaimNumber} for letter generation", claimNumber);
+            }
+
+            if (claimDto == null)
+            {
+                _logger?.LogWarning("Claim {ClaimNumber} not found when attempting to generate letters", claimNumber);
+                return;
+            }
+
+            await GenerateLettersForClaimInternalAsync(claimDto, selectedRuleIds);
+        }
+
+        public async Task GenerateLettersForClaimAsync(Claim claim, IEnumerable<string>? selectedRuleIds = null)
+        {
+            await GenerateLettersForClaimInternalAsync(claim, selectedRuleIds);
         }
 
         #region FNOL Operations
@@ -240,7 +297,7 @@ namespace ClaimsPortal.Services
             if (string.Equals(claim.LossDetails?.ReportedBy, "Other", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(claim.LossDetails?.ReportedByName))
             {
-                var entityCreator = new EntityCreationService(_context);
+                var entityCreator = new EntityCreationService(_contextFactory ?? throw new InvalidOperationException("DbContextFactory not available"));
                 fnol.ReportedByEntityId = await entityCreator.CreateReportedByEntityAsync(claim.LossDetails, request.CreatedBy);
             }
 
@@ -286,6 +343,9 @@ namespace ClaimsPortal.Services
 
             // Save related entities (vehicles, claimants, sub-claims, witnesses, authorities, etc.)
             await SaveRelatedEntitiesAsync(fnol, claim, request.CreatedBy);
+
+            // Ensure the DTO claim has the generated ClaimNumber from FNOL
+            try { claim.ClaimNumber = fnol.ClaimNumber; } catch { }
 
             return fnol;
         }
@@ -374,6 +434,39 @@ namespace ClaimsPortal.Services
 
             // Save related entities (vehicles, claimants, sub-claims, etc.)
             await SaveRelatedEntitiesAsync(fnol, claim, request.CreatedBy);
+
+            // Only auto-generate on conversion (SaveComplete). Use user's selected rule ids if provided.
+            try
+            {
+                // Ensure DTO claim has the assigned ClaimNumber so generation persists against it
+                try { claim.ClaimNumber = fnol.ClaimNumber; } catch { }
+
+                // Enqueue a durable job for background letter generation so generation occurs
+                // after the claim and related entities are persisted and can be retried.
+                try
+                {
+                    _logger?.LogInformation("Enqueueing letter generation job for ClaimNumber={ClaimNumber} SelectedCount={SelectedCount}", fnol.ClaimNumber, request.SelectedLetterRuleIds?.Count ?? 0);
+                    var queue = new Data.LetterGenQueue
+                    {
+                        ClaimNumber = fnol.ClaimNumber ?? string.Empty,
+                        SelectedRuleIds = (request.SelectedLetterRuleIds != null && request.SelectedLetterRuleIds.Any()) ? string.Join(',', request.SelectedLetterRuleIds) : null,
+                        Status = "Pending",
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Tries = 0
+                    };
+
+                    _context.LetterGenQueue.Add(queue);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Failed to enqueue letter generation job for claim {ClaimNumber}", fnol.ClaimNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Letter generation failed for FNOL {FnolNumber} during convert", fnol.FnolNumber);
+            }
 
             return fnol;
         }
@@ -1165,7 +1258,7 @@ namespace ClaimsPortal.Services
                     // Create claimant record for injured party
                     if (tp.WasInjured)
                     {
-                        Console.WriteLine($"[DEBUG] TP Vehicle claimant - InjuredParty={tp.InjuredParty}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, OwnerEntityId={ownerEntityId}, DriverEntityId={tpDriverEntityId}, DriverName='{tp.Driver?.Name}', TPName='{tp.Name}'");
+                        _logger.LogDebug($"[DEBUG] TP Vehicle claimant - InjuredParty={tp.InjuredParty}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, OwnerEntityId={ownerEntityId}, DriverEntityId={tpDriverEntityId}, DriverName='{tp.Driver?.Name}', TPName='{tp.Name}'");
 
                         // If the UI did not supply an explicit InjuredParty, default to Driver when driver info exists; otherwise Owner.
                         if (string.IsNullOrEmpty(tp.InjuredParty))
@@ -1173,12 +1266,12 @@ namespace ClaimsPortal.Services
                             if (tp.Driver != null && !string.IsNullOrEmpty(tp.Driver.Name))
                             {
                                 tp.InjuredParty = "Driver";
-                                Console.WriteLine("[DEBUG] No InjuredParty selected; defaulting to 'Driver' because driver data exists.");
+                                _logger.LogDebug("[DEBUG] No InjuredParty selected; defaulting to 'Driver' because driver data exists.");
                             }
                             else if (!string.IsNullOrEmpty(tp.Name))
                             {
                                 tp.InjuredParty = "Owner";
-                                Console.WriteLine("[DEBUG] No InjuredParty selected; defaulting to 'Owner'.");
+                                _logger.LogDebug("[DEBUG] No InjuredParty selected; defaulting to 'Owner'.");
                             }
                         }
 
@@ -1204,6 +1297,12 @@ namespace ClaimsPortal.Services
                             CreatedDate = DateTime.Now,
                             CreatedBy = createdBy
                         };
+
+                        // Persist VIN on claimant when available (vehicle occupants)
+                        if (!string.IsNullOrEmpty(tp.Vehicle?.Vin))
+                        {
+                            tpClaimant.Vin = tp.Vehicle.Vin;
+                        }
 
                         // Add injury details
                         if (tp.InjuryInfo != null)
@@ -1298,13 +1397,13 @@ namespace ClaimsPortal.Services
                         tpClaimant.HospitalZipCode = tp.InjuryInfo.HospitalZipCode;
                         tpClaimant.TreatingPhysician = tp.InjuryInfo.TreatingPhysician;
                     }
-                    // If this is a passenger, persist the selected VIN reference on the claimant record
-                    if (tp.Type == "Passenger")
+                    // Persist selected VIN reference on claimant record for passenger/pedestrian/bicyclist when set
+                    if (!string.IsNullOrEmpty(tp.SelectedVehicleVin))
                     {
                         tpClaimant.Vin = tp.SelectedVehicleVin;
                     }
 
-                    Console.WriteLine($"[DEBUG] TP Non-Vehicle claimant - Type={tp.Type}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, TPName='{tp.Name}'");
+                    _logger.LogDebug($"[DEBUG] TP Non-Vehicle claimant - Type={tp.Type}, WasInjured={tp.WasInjured}, HasAttorney={tp.HasAttorney}, AttorneyName='{tp.AttorneyInfo?.Name}', AttorneyVendorEntityId={tp.AttorneyInfo?.VendorEntityId}, TPName='{tp.Name}'");
 
                     _context.Claimants.Add(tpClaimant);
                 }
@@ -1381,6 +1480,7 @@ namespace ClaimsPortal.Services
             var baseClaimId = !string.IsNullOrEmpty(fnol.ClaimNumber)
                 ? fnol.ClaimNumber
                 : (!string.IsNullOrEmpty(fnol.FnolNumber) ? fnol.FnolNumber : $"F{fnol.FnolId}");
+            var subclaimMappings = new List<(ClaimsPortal.Models.SubClaim sc, Data.SubClaim entity)>();
             foreach (var sc in claim.SubClaims)
             {
                 var subClaim = new Data.SubClaim
@@ -1415,10 +1515,316 @@ namespace ClaimsPortal.Services
                 }
 
                 _context.SubClaims.Add(subClaim);
+                subclaimMappings.Add((sc, subClaim));
                 featureNumber++;
             }
 
             await _context.SaveChangesAsync();
+
+            // Map DB-generated SubClaim IDs back to the DTO subclaims so subsequent logic (letter generation) can reference SubClaimId
+            try
+            {
+                foreach (var pair in subclaimMappings)
+                {
+                    // DTO uses `Id` for sub-claim identifier while DB entity uses `SubClaimId`
+                    pair.sc.Id = (int)pair.entity.SubClaimId;
+                    pair.sc.FeatureNumber = pair.entity.FeatureNumber;
+                }
+            }
+            catch { }
+        }
+
+        private async Task GenerateLettersForClaimInternalAsync(Claim claim, IEnumerable<string>? selectedRuleIds = null)
+        {
+            _logger?.LogDebug("[DEBUG-AUTO-GEN] Enter GenerateLettersForClaimAsync for ClaimNumber={ClaimNumber} SubClaims={SubCount}", claim?.ClaimNumber, claim?.SubClaims?.Count ?? 0);
+
+            // Use a separate DbContext instance from the factory when available to avoid concurrent operations
+            ClaimsPortalDbContext? dbFromFactory = null;
+            var db = _context;
+            if (_contextFactory != null)
+            {
+                dbFromFactory = _contextFactory.CreateDbContext();
+                db = dbFromFactory;
+            }
+
+            // Prefer DB-backed admin rules (LetterGen_AdminRules) when available, else fall back to JSON config store
+            IEnumerable<LetterRule> rules;
+            if (db.LetterGenAdminRules != null && await db.LetterGenAdminRules.AnyAsync())
+            {
+                rules = await db.LetterGenAdminRules
+                    .Where(r => r.IsActive)
+                    .OrderBy(r => r.Priority)
+                    .Select(r => new LetterRule
+                    {
+                        Id = r.Id.ToString(),
+                        Coverage = r.Coverage,
+                        Claimant = r.Claimant,
+                        HasAttorney = r.IsAttorneyRepresented,
+                        DocumentName = r.DocumentName,
+                        TemplateFile = r.TemplateFile ?? string.Empty,
+                        MailTo = r.MailTo,
+                        Location = r.Location
+                    })
+                    .ToListAsync();
+            }
+            else if (_configStore != null)
+            {
+                rules = _configStore.GetAll();
+            }
+            else
+            {
+                rules = Array.Empty<LetterRule>();
+            }
+            var generatedDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+            Directory.CreateDirectory(generatedDir);
+
+            // If the user passed a selected set, restrict generation to those rule Ids
+            HashSet<string>? selected = null;
+            if (selectedRuleIds != null)
+            {
+                selected = new HashSet<string>(selectedRuleIds, StringComparer.OrdinalIgnoreCase);
+                _logger?.LogDebug("[DEBUG-AUTO-GEN] User selected {SelectedCount} rule ids: {SelectedIds}", selected.Count, string.Join(',', selected.Take(10)));
+            }
+
+            _logger?.LogDebug("[DEBUG-AUTO-GEN] Loaded {RuleCount} candidate rules", rules?.Count() ?? 0);
+
+            var hasAttorney = (claim.DriverAttorney != null)
+                             || claim.Passengers.Any(p => p.HasAttorney)
+                             || claim.ThirdParties.Any(t => t.HasAttorney);
+
+            foreach (var sub in claim.SubClaims)
+            {
+                _logger?.LogDebug("[DEBUG-AUTO-GEN] Processing SubClaim Feature={Feature} Coverage={Coverage} ClaimType={ClaimType} ClaimantName={ClaimantName}", sub?.FeatureNumber, sub?.Coverage, sub?.ClaimType, sub?.ClaimantName);
+                foreach (var rule in rules)
+                {
+                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Evaluating Rule Id={RuleId} Name={DocName} Coverage={Coverage} Claimant={Claimant} HasAttorney={HasAttorney}", rule?.Id, rule?.DocumentName, rule?.Coverage, rule?.Claimant, rule?.HasAttorney);
+                    if (!string.Equals(rule.Coverage, sub.Coverage, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (rule.HasAttorney != hasAttorney)
+                        continue;
+
+                    bool claimantMatches = false;
+                    // Normalize strings by removing non-alphanumeric chars and lower-casing to tolerate variants like
+                    // "Insured Vehicle Driver" vs "InsuredDriver" vs "Insured Vehicle Driver"
+                    static string NormalizeForMatch(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : Regex.Replace(s, "[^A-Za-z0-9]", "").ToLowerInvariant();
+
+                    var ruleClaimNorm = NormalizeForMatch(rule.Claimant);
+                    var subTypeNorm = NormalizeForMatch(sub?.ClaimType);
+                    var subNameNorm = NormalizeForMatch(sub?.ClaimantName);
+
+                    if (!string.IsNullOrEmpty(ruleClaimNorm))
+                    {
+                        if (ruleClaimNorm.Contains("driver") && subTypeNorm.Contains("driver"))
+                            claimantMatches = true;
+                        else if (ruleClaimNorm.Contains("passenger") && subTypeNorm.Contains("passenger"))
+                            claimantMatches = true;
+                        else if (ruleClaimNorm.Contains("third") && subTypeNorm.Contains("third"))
+                            claimantMatches = true;
+                        else if (ruleClaimNorm == subNameNorm)
+                            claimantMatches = true;
+                        else if (ruleClaimNorm == NormalizeForMatch(sub?.ClaimType))
+                            claimantMatches = true;
+                    }
+
+                    if (!claimantMatches)
+                    {
+                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} did not match claimant for SubFeature {Feature}", rule?.Id, sub?.FeatureNumber);
+                        continue;
+                    }
+
+                    // Respect user's selection if provided
+                    if (selected != null && !selected.Contains(rule.Id))
+                    {
+                        _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} skipped because not selected by user", rule?.Id);
+                        continue;
+                    }
+
+                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Rule {RuleId} matched and will be generated for SubFeature {Feature}", rule?.Id, sub?.FeatureNumber);
+
+                    // Respect user's selection if provided
+                    if (selected != null && !selected.Contains(rule.Id))
+                        continue;
+
+                    var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "ClaimNumber", claim.ClaimNumber ?? string.Empty },
+                        { "PolicyNumber", claim.PolicyInfo?.PolicyNumber ?? string.Empty },
+                        { "InsuredName", claim.PolicyInfo?.InsuredName ?? claim.InsuredParty?.Name ?? string.Empty },
+                        { "ClaimantName", sub?.ClaimantName ?? string.Empty },
+                        { "LossDate", claim.LossDetails != null ? claim.LossDetails.DateOfLoss.ToString("yyyy-MM-dd") : string.Empty },
+                        { "LocationAddress", claim.LossDetails?.Location ?? string.Empty },
+                        { "AddresseeName", rule.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
+                        { "AddresseeAddressLine1", claim.InsuredParty?.Address?.StreetAddress ?? string.Empty },
+                        { "AddresseeAddressLine2", claim.InsuredParty?.Address?.AddressLine2 ?? string.Empty },
+                        { "AddresseeCity", claim.InsuredParty?.Address?.City ?? string.Empty },
+                        { "AddresseeState", claim.InsuredParty?.Address?.State ?? string.Empty },
+                        { "AddresseePostalCode", claim.InsuredParty?.Address?.ZipCode ?? string.Empty },
+                        { "AdjusterName", !string.IsNullOrEmpty(sub?.AssignedAdjusterName) ? sub.AssignedAdjusterName : "Claims Adjuster" },
+                        { "AdjusterPhone", claim.PolicyInfo?.PhoneNumber ?? claim.InsuredParty?.PhoneNumber ?? string.Empty },
+                        { "AdjusterEmail", claim.PolicyInfo?.ContactEmail ?? claim.InsuredParty?.Email ?? string.Empty },
+                        { "TemplateName", rule?.TemplateFile ?? string.Empty },
+                        { "RuleName", rule?.DocumentName ?? string.Empty },
+                        { "GeneratedAt", DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm 'UTC'") }
+                    };
+
+                    // Decide which template file to use. Prefer explicit TemplateFile from the rule.
+                    // If missing, derive a sensible fallback from the DocumentName. If none available,
+                    // skip generation for this rule and log a warning.
+                    string? templateName = null;
+                    if (!string.IsNullOrWhiteSpace(rule.TemplateFile))
+                    {
+                        templateName = rule.TemplateFile;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+                    {
+                        // Make a safe file name from the document name and assume .html
+                        var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                        templateName = safe + ".html";
+                    }
+
+                    if (string.IsNullOrWhiteSpace(templateName))
+                    {
+                        _logger?.LogWarning("[DEBUG-AUTO-GEN] Rule {RuleId} has no TemplateFile and no DocumentName; skipping generation.", rule?.Id);
+                        continue;
+                    }
+
+                    // Verify the template file exists under wwwroot/templates before attempting generation
+                    var templatesDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "templates");
+                    var templatePath = Path.Combine(templatesDir, templateName);
+                    if (!File.Exists(templatePath))
+                    {
+                        _logger?.LogWarning("[DEBUG-AUTO-GEN] Template file '{TemplateName}' not found at '{TemplatePath}' for Rule {RuleId}; skipping.", templateName, templatePath, rule?.Id);
+                        continue;
+                    }
+
+                    var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : generatedDir;
+                    try
+                    {
+                        Directory.CreateDirectory(outDir);
+                    }
+                    catch
+                    {
+                        outDir = generatedDir;
+                        Directory.CreateDirectory(outDir);
+                    }
+
+                        var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                        // Prevent duplicate auto-generation for same claim/subclaim and document
+                        var already = await db.LetterGenGeneratedDocuments
+                            .AnyAsync(d => d.ClaimNumber == claim.ClaimNumber && d.DocumentNumber == safeDocName && d.SubClaimFeatureNumber == sub.FeatureNumber);
+                        if (already)
+                            continue;
+
+                        var filename = $"{safeDocName}_{claim.PolicyInfo?.InsuredName ?? "claim"}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+                        var outPath = Path.Combine(outDir, filename);
+
+                        try
+                        {
+                            _logger?.LogDebug("[DEBUG-AUTO-GEN] Generating template {Template} for Claim {ClaimNumber} SubFeature {SubFeature}", templateName, claim?.ClaimNumber, sub.FeatureNumber);
+                            await _letterService!.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
+                        }
+                        catch (Exception genEx)
+                        {
+                            _logger?.LogWarning(genEx, "[DEBUG-AUTO-GEN] PDF generation failed for Claim {ClaimNumber} Template {Template} SubFeature {SubFeature}", claim?.ClaimNumber, templateName, sub.FeatureNumber);
+                            continue;
+                        }
+
+                        var copyTo = Path.Combine(generatedDir, Path.GetFileName(outPath));
+                        try
+                        {
+                            if (!string.Equals(Path.GetFullPath(outPath), Path.GetFullPath(copyTo), StringComparison.OrdinalIgnoreCase))
+                            {
+                                File.Copy(outPath, copyTo, overwrite: true);
+                            }
+                        }
+                        catch
+                        {
+                            // ignore copy errors
+                        }
+
+                        // Persist metadata to DB
+                        try
+                        {
+                            var fi = new FileInfo(outPath);
+                            byte[]? sha = null;
+                            try
+                            {
+                                using var stream = File.OpenRead(outPath);
+                                using var sha256 = SHA256.Create();
+                                var hash = sha256.ComputeHash(stream);
+                                sha = hash;
+                            }
+                            catch { sha = null; }
+
+                            long? parsedRuleId = null;
+                            if (!string.IsNullOrWhiteSpace(rule?.Id) && long.TryParse(rule.Id, out var tmpRuleId)) parsedRuleId = tmpRuleId;
+
+                            var doc = new LetterGenGeneratedDocument
+                            {
+                                Id = Guid.NewGuid(),
+                                RuleId = parsedRuleId,
+                                ClaimNumber = claim.ClaimNumber,
+                                SubClaimId = sub != null ? (long?)sub.Id : null,
+                                SubClaimFeatureNumber = sub.FeatureNumber,
+                                DocumentNumber = safeDocName,
+                                FileName = Path.GetFileName(outPath),
+                                StorageProvider = "filesystem",
+                                StoragePath = outPath,
+                                Content = null,
+                                ContentType = "application/pdf",
+                                FileSize = fi.Exists ? fi.Length : (long?)null,
+                                Sha256Hash = sha != null ? BitConverter.ToString(sha).Replace("-", string.Empty).ToLowerInvariant() : null,
+                                MailTo = rule.MailTo,
+                                MailStatus = null,
+                                CreatedBy = claim.CreatedBy ?? "system",
+                                CreatedAt = DateTimeOffset.UtcNow
+                            };
+                            _logger?.LogDebug("[DEBUG-AUTO-GEN] Persisting generated doc RuleId={RuleId} SubClaimId={SubClaimId} File={FileName}", doc.RuleId, doc.SubClaimId, doc.FileName);
+                            db.LetterGenGeneratedDocuments.Add(doc);
+                            await db.SaveChangesAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "Failed to save generated letter metadata for claim {ClaimNumber}", claim.ClaimNumber);
+                        }
+                }
+            }
+
+            // Dispose any factory-created context
+            if (dbFromFactory != null)
+            {
+                try { dbFromFactory.Dispose(); } catch { }
+            }
+        }
+
+        // Overload: accept a claim number, load the claim details from DB, then delegate
+        private async Task GenerateLettersForClaimInternalAsync(string claimNumber, IEnumerable<string>? selectedRuleIds = null)
+        {
+            if (string.IsNullOrWhiteSpace(claimNumber))
+            {
+                _logger?.LogWarning("GenerateLettersForClaimAsync called with empty claimNumber");
+                return;
+            }
+
+            // Load a populated Claim DTO with related details
+            Claim? claimDto = null;
+            try
+            {
+                claimDto = await GetClaimWithDetailsAsync(claimNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to load claim {ClaimNumber} for letter generation", claimNumber);
+            }
+
+            if (claimDto == null)
+            {
+                _logger?.LogWarning("Claim {ClaimNumber} not found when attempting to generate letters", claimNumber);
+                return;
+            }
+
+            await GenerateLettersForClaimInternalAsync(claimDto, selectedRuleIds);
         }
 
         #endregion
@@ -1504,8 +1910,24 @@ namespace ClaimsPortal.Services
 
         public async Task<Claim?> GetClaimWithDetailsAsync(string claimNumber)
         {
-            // Get the FNOL record associated with the claim number
-            var fnol = await _context.FNOLs
+            ClaimsPortalDbContext? _createdCtx = null;
+            IServiceScope? _innerScope = null;
+            try
+            {
+                ClaimsPortalDbContext ctx;
+                if (_contextFactory != null)
+                {
+                    _createdCtx = _contextFactory.CreateDbContext();
+                    ctx = _createdCtx;
+                }
+                else
+                {
+                    _innerScope = _scopeFactory.CreateScope();
+                    ctx = _innerScope.ServiceProvider.GetRequiredService<ClaimsPortalDbContext>();
+                }
+
+                // Get the FNOL record associated with the claim number
+                var fnol = await ctx.FNOLs
                 .FirstOrDefaultAsync(f => f.ClaimNumber == claimNumber || f.FnolNumber == claimNumber);
 
             if (fnol == null)
@@ -1514,20 +1936,20 @@ namespace ClaimsPortal.Services
             }
 
             // Load related data separately
-            var vehicles = await _context.Vehicles.Where(v => v.FnolId == fnol.FnolId).ToListAsync();
-            var claimants = await _context.Claimants.Where(c => c.FnolId == fnol.FnolId).ToListAsync();
-            var subClaims = await _context.SubClaims.Where(s => s.FnolId == fnol.FnolId).ToListAsync();
-            var witnesses = await _context.FnolWitnesses.Where(w => w.FnolId == fnol.FnolId).ToListAsync();
-            var authorities = await _context.FnolAuthorities.Where(a => a.FnolId == fnol.FnolId).ToListAsync();
+            var vehicles = await ctx.Vehicles.Where(v => v.FnolId == fnol.FnolId).ToListAsync();
+            var claimants = await ctx.Claimants.Where(c => c.FnolId == fnol.FnolId).ToListAsync();
+            var subClaims = await ctx.SubClaims.Where(s => s.FnolId == fnol.FnolId).ToListAsync();
+            var witnesses = await ctx.FnolWitnesses.Where(w => w.FnolId == fnol.FnolId).ToListAsync();
+            var authorities = await ctx.FnolAuthorities.Where(a => a.FnolId == fnol.FnolId).ToListAsync();
 
             // Get entity details for witnesses and authorities
             var witnessEntityIds = witnesses.Select(w => w.EntityId).ToList();
             var authorityEntityIds = authorities.Select(a => a.EntityId).ToList();
             // Include addresses so we can display address details in the UI
-            var witnessEntities = await _context.EntityMasters
+            var witnessEntities = await ctx.EntityMasters
                 .Include(e => e.Addresses)
                 .Where(e => witnessEntityIds.Contains(e.EntityId)).ToListAsync();
-            var authorityEntities = await _context.EntityMasters
+            var authorityEntities = await ctx.EntityMasters
                 .Include(e => e.Addresses)
                 .Where(e => authorityEntityIds.Contains(e.EntityId)).ToListAsync();
 
@@ -1536,7 +1958,7 @@ namespace ClaimsPortal.Services
             var vendorMasters = new List<VendorMasterEntity>();
             if (vendorIds.Count > 0)
             {
-                vendorMasters = await _context.VendorMasters
+                vendorMasters = await ctx.VendorMasters
                     .Include(v => v.Addresses)
                     .Where(v => vendorIds.Contains(v.VendorId)).ToListAsync();
             }
@@ -1545,7 +1967,7 @@ namespace ClaimsPortal.Services
             Models.Address? reportedByAddress = null;
             if (fnol.ReportedByEntityId.HasValue)
             {
-                var reportedEntity = await _context.EntityMasters
+                var reportedEntity = await ctx.EntityMasters
                     .Include(e => e.Addresses)
                     .FirstOrDefaultAsync(e => e.EntityId == fnol.ReportedByEntityId.Value);
                 if (reportedEntity != null)
@@ -1738,7 +2160,7 @@ namespace ClaimsPortal.Services
                 // Load driver info if available
                 if (insuredVehicle.DriverEntityId.HasValue)
                 {
-                    var driverEntity = await _context.EntityMasters
+                    var driverEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == insuredVehicle.DriverEntityId.Value);
                     if (driverEntity != null)
@@ -1790,11 +2212,11 @@ namespace ClaimsPortal.Services
                 }
 
                 // Load driver attorney (prefer VendorMaster, fallback to legacy EntityMaster)
-                if (driverClaimant.IsAttorneyRepresented)
-                {
-                    if (driverClaimant.AttorneyVendorId.HasValue)
+                    if (driverClaimant.IsAttorneyRepresented)
                     {
-                        var vendor = await _context.VendorMasters
+                        if (driverClaimant.AttorneyVendorId.HasValue)
+                        {
+                        var vendor = await ctx.VendorMasters
                             .Include(v => v.Addresses)
                             .FirstOrDefaultAsync(v => v.VendorId == driverClaimant.AttorneyVendorId.Value);
                         if (vendor != null)
@@ -1822,7 +2244,7 @@ namespace ClaimsPortal.Services
                     }
                     else if (driverClaimant.AttorneyEntityId.HasValue)
                     {
-                        var attorneyEntity = await _context.EntityMasters
+                        var attorneyEntity = await ctx.EntityMasters
                             .Include(e => e.Addresses)
                             .FirstOrDefaultAsync(e => e.EntityId == driverClaimant.AttorneyEntityId.Value);
                         if (attorneyEntity != null)
@@ -1861,9 +2283,9 @@ namespace ClaimsPortal.Services
                     HasAttorney = pc.IsAttorneyRepresented
                 };
 
-                if (pc.ClaimantEntityId.HasValue)
-                {
-                    var entity = await _context.EntityMasters
+                    if (pc.ClaimantEntityId.HasValue)
+                    {
+                    var entity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == pc.ClaimantEntityId.Value);
 
@@ -1907,13 +2329,13 @@ namespace ClaimsPortal.Services
                 }
 
                 // Load passenger attorney (prefer VendorMaster)
-                if (pc.IsAttorneyRepresented)
-                {
-                    if (pc.AttorneyVendorId.HasValue)
+                    if (pc.IsAttorneyRepresented)
                     {
-                        var vendor = await _context.VendorMasters
-                            .Include(v => v.Addresses)
-                            .FirstOrDefaultAsync(v => v.VendorId == pc.AttorneyVendorId.Value);
+                        if (pc.AttorneyVendorId.HasValue)
+                        {
+                            var vendor = await ctx.VendorMasters
+                                .Include(v => v.Addresses)
+                                .FirstOrDefaultAsync(v => v.VendorId == pc.AttorneyVendorId.Value);
                         if (vendor != null)
                         {
                             var mainAddr = vendor.Addresses?.FirstOrDefault(a => a.AddressType == 'M' && a.AddressStatus == 'Y')
@@ -1939,7 +2361,7 @@ namespace ClaimsPortal.Services
                     }
                     else if (pc.AttorneyEntityId.HasValue)
                     {
-                        var attorneyEntity = await _context.EntityMasters
+                        var attorneyEntity = await ctx.EntityMasters
                             .Include(e => e.Addresses)
                             .FirstOrDefaultAsync(e => e.EntityId == pc.AttorneyEntityId.Value);
                         if (attorneyEntity != null)
@@ -1994,7 +2416,7 @@ namespace ClaimsPortal.Services
                 // Load owner entity (if present)
                 if (veh.VehicleOwnerEntityId.HasValue)
                 {
-                    var ownerEntity = await _context.EntityMasters
+                    var ownerEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == veh.VehicleOwnerEntityId.Value);
                     if (ownerEntity != null)
@@ -2020,7 +2442,7 @@ namespace ClaimsPortal.Services
                 // Load driver entity (if present)
                 if (veh.DriverEntityId.HasValue)
                 {
-                    var driverEntity = await _context.EntityMasters
+                    var driverEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == veh.DriverEntityId.Value);
                     if (driverEntity != null)
@@ -2082,7 +2504,7 @@ namespace ClaimsPortal.Services
                     {
                         if (injuredClaimant.AttorneyVendorId.HasValue)
                         {
-                            var vendor = await _context.VendorMasters
+                            var vendor = await ctx.VendorMasters
                                 .Include(v => v.Addresses)
                                 .FirstOrDefaultAsync(v => v.VendorId == injuredClaimant.AttorneyVendorId.Value);
                             if (vendor != null)
@@ -2111,7 +2533,7 @@ namespace ClaimsPortal.Services
                         }
                         else if (injuredClaimant.AttorneyEntityId.HasValue)
                         {
-                            var attEntity = await _context.EntityMasters
+                            var attEntity = await ctx.EntityMasters
                                 .Include(e => e.Addresses)
                                 .FirstOrDefaultAsync(e => e.EntityId == injuredClaimant.AttorneyEntityId.Value);
                             if (attEntity != null)
@@ -2156,7 +2578,7 @@ namespace ClaimsPortal.Services
 
                 if (tpClaimant.ClaimantEntityId.HasValue)
                 {
-                    tpEntity = await _context.EntityMasters
+                    tpEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == tpClaimant.ClaimantEntityId.Value);
 
@@ -2220,7 +2642,7 @@ namespace ClaimsPortal.Services
                 // Load attorney for vehicle third party
                 if (tpClaimant.IsAttorneyRepresented && tpClaimant.AttorneyEntityId.HasValue)
                 {
-                    var attorneyEntity = await _context.EntityMasters
+                    var attorneyEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == tpClaimant.AttorneyEntityId.Value);
                     if (attorneyEntity != null)
@@ -2251,7 +2673,7 @@ namespace ClaimsPortal.Services
             }
 
             // Load property damages saved for this FNOL and map to Claim model
-            var fnolPropertyDamages = await _context.FnolPropertyDamages
+            var fnolPropertyDamages = await ctx.FnolPropertyDamages
                 .Where(pd => pd.FnolId == fnol.FnolId)
                 .ToListAsync();
 
@@ -2262,7 +2684,7 @@ namespace ClaimsPortal.Services
                 Data.AddressMaster? ownerAddr = null;
                 if (pd.OwnerEntityId.HasValue)
                 {
-                    ownerEntity = await _context.EntityMasters
+                    ownerEntity = await ctx.EntityMasters
                         .Include(e => e.Addresses)
                         .FirstOrDefaultAsync(e => e.EntityId == pd.OwnerEntityId.Value);
                     ownerAddr = ownerEntity?.Addresses?.FirstOrDefault(a => a.AddressType == 'M')
@@ -2307,7 +2729,7 @@ namespace ClaimsPortal.Services
             // Diagnostic: log how many property damages were mapped for this claim
             try
             {
-                Console.WriteLine($"[DEBUG] Loaded claim {claim.ClaimNumber} with PropertyDamages.Count={claim.PropertyDamages.Count}");
+                _logger.LogDebug($"[DEBUG] Loaded claim {claim.ClaimNumber} with PropertyDamages.Count={claim.PropertyDamages.Count}");
             }
             catch
             {
@@ -2315,6 +2737,12 @@ namespace ClaimsPortal.Services
             }
 
             return claim;
+                }
+            finally
+            {
+                _createdCtx?.Dispose();
+                _innerScope?.Dispose();
+            }
         }
 
         #endregion

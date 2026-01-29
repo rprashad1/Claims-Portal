@@ -84,7 +84,7 @@
                         <div class="col-md-4"><label class="form-label">City</label><input class="form-control" @bind="ThirdParty.Address!.City" /></div>
                         <div class="col-md-2"><label class="form-label">State</label><input class="form-control" maxlength="2" @bind="ThirdParty.Address!.State" /></div>
                         <div class="col-md-2"><label class="form-label">Zip</label><input class="form-control" @bind="ThirdParty.Address!.ZipCode" /></div>
-                        <div class="col-md-4"><label class="form-label">Phone</label><input class="form-control" type="tel" placeholder="(555) 555-5555" @bind="ThirdParty.PhoneNumber" /></div>
+                        <div class="col-md-4"><label class="form-label">Phone</label><input class="form-control" type="tel" placeholder="(555) 555-5555" @bind="ThirdParty.PhoneNumber" @onblur="FormatOwnerPhone" /></div>
                     </div>
 
                     <div class="row g-3 mt-2">
@@ -234,12 +234,7 @@
                                     <div class="col-md-4"><input class="form-control" placeholder="City" @bind="ThirdParty.Driver!.Address.City" /></div>
                                     <div class="col-md-2"><input class="form-control" placeholder="State" maxlength="2" @bind="ThirdParty.Driver!.Address.State" /></div>
                                     <div class="col-md-2"><input class="form-control" placeholder="Zip" @bind="ThirdParty.Driver!.Address.ZipCode" /></div>
-                                    <div class="col-md-4"><input class="form-control" type="tel" placeholder="(555) 555-5555" @bind="ThirdParty.Driver!.PhoneNumber" /></div>
-                                </div>
-
-                                <div class="row g-2 mt-2">
-                                    <div class="col-md-6"><input class="form-control" placeholder="Email (e.g. user@example.com)" @bind="ThirdParty.Driver!.Email" /></div>
-                                    <div class="col-md-6"><input class="form-control" placeholder="FEIN or SSN (###-##-####)" @bind="ThirdParty.Driver!.FeinSsNumber" /></div>
+                            @* Debug info removed *@
                                 </div>
 
                                 <!-- Passenger uses the shared InjuryInfo from the top of the section; duplicate controls removed -->
@@ -409,12 +404,6 @@
         {
             ThirdParty.HasAttorney = true;
             ThirdParty.AttorneyInfo = info ?? new AttorneyInfo { Address = new Address() };
-            // Diagnostic log to verify selection propagation
-            try
-            {
-                Console.WriteLine($"[ThirdPartyVehicleModal] OnAttorneySelected invoked. Selected Name='{info?.Name}' Assigned Name='{ThirdParty.AttorneyInfo?.Name}'");
-            }
-            catch { }
             await InvokeAsync(StateHasChanged);
         }
 
@@ -525,14 +514,23 @@
             set
             {
                 ThirdParty.WasInjured = value;
-                // If injured and no InjuredParty selected, default to Driver when driver info exists
-                if (ThirdParty.WasInjured && string.IsNullOrEmpty(ThirdParty.InjuredParty))
-                {
-                    if (!string.IsNullOrWhiteSpace(ThirdParty.Driver?.Name))
-                        ThirdParty.InjuredParty = "Driver";
-                    else if (!string.IsNullOrWhiteSpace(ThirdParty.Name))
-                        ThirdParty.InjuredParty = "Owner";
-                }
+                    // If injured and no InjuredParty selected, choose default based on owner/driver relationship:
+                    // If driver is marked same-as-owner, default to Owner; otherwise prefer Driver when driver info exists.
+                    if (ThirdParty.WasInjured && string.IsNullOrEmpty(ThirdParty.InjuredParty))
+                    {
+                        if (CopyOwnerToDriver)
+                        {
+                            ThirdParty.InjuredParty = "Owner";
+                        }
+                        else if (!string.IsNullOrWhiteSpace(ThirdParty.Driver?.Name))
+                        {
+                            ThirdParty.InjuredParty = "Driver";
+                        }
+                        else if (!string.IsNullOrWhiteSpace(ThirdParty.Name))
+                        {
+                            ThirdParty.InjuredParty = "Owner";
+                        }
+                    }
             }
         }
 
@@ -569,6 +567,28 @@
             ThirdParty.Driver.PhoneNumber = ThirdParty.PhoneNumber;
             ThirdParty.Driver.Email = ThirdParty.Email;
             ThirdParty.Driver.FeinSsNumber = ThirdParty.FeinSsNumber;
+        }
+
+        // Phone formatting helpers
+        private void FormatOwnerPhone(FocusEventArgs _)
+        {
+            if (ThirdParty == null) return;
+            ThirdParty.PhoneNumber = FormatPhoneNumber(ThirdParty.PhoneNumber);
+        }
+
+        private void FormatDriverPhone(FocusEventArgs _)
+        {
+            if (ThirdParty?.Driver == null) return;
+            ThirdParty.Driver.PhoneNumber = FormatPhoneNumber(ThirdParty.Driver.PhoneNumber);
+        }
+
+        private string FormatPhoneNumber(string? phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone)) return string.Empty;
+            var digits = new string((phone ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (digits.Length == 10) return $"({digits.Substring(0,3)}) {digits.Substring(3,3)}-{digits.Substring(6,4)}";
+            if (digits.Length == 11 && digits[0] == '1') return $"+1 ({digits.Substring(1,3)}) {digits.Substring(4,3)}-{digits.Substring(7,4)}";
+            return phone ?? string.Empty;
         }
 
 

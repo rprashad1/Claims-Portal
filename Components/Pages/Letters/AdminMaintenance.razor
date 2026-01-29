@@ -1,0 +1,226 @@
+@page "/letters/maintenance"
+@using System.IO
+@using Microsoft.AspNetCore.Components.Forms
+@inject ClaimsPortal.Services.LetterConfigStore ConfigStore
+@inject IWebHostEnvironment Env
+@inject ClaimsPortal.Services.LetterService LetterService
+@inject IJSRuntime JS
+
+<h3>Letter Rules Maintenance</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <h5>Rules</h5>
+        <button class="btn btn-sm btn-success mb-2" @onclick="NewRule">New Rule</button>
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Coverage</th><th>Claimant</th><th>Doc</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Rules)
+                {
+                    <tr class="@(SelectedRule?.Id == r.Id ? "table-active" : "")">
+                        <td>@r.Coverage</td>
+                        <td>@r.Claimant</td>
+                        <td>@r.DocumentName</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary me-1" @onclick="() => EditRule(r.Id)">Edit</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(r.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="col-md-6">
+        <h5>@(IsNew ? "Create Rule" : "Edit Rule")</h5>
+        <div class="mb-2">
+            <label>Coverage</label>
+            <input class="form-control" @bind="SelectedRule.Coverage" />
+        </div>
+        <div class="mb-2">
+            <label>Claimant</label>
+            <input class="form-control" @bind="SelectedRule.Claimant" />
+        </div>
+        <div class="mb-2 form-check">
+            <input type="checkbox" class="form-check-input" id="hasAttorney" @bind="SelectedRule.HasAttorney" />
+            <label class="form-check-label" for="hasAttorney">Has Attorney</label>
+        </div>
+        <div class="mb-2">
+            <label>Document Name</label>
+            <input class="form-control" @bind="SelectedRule.DocumentName" />
+        </div>
+        <div class="mb-2">
+            <label>Template File</label>
+            <select class="form-select" @bind="SelectedRule.TemplateFile">
+                <option value="">(none)</option>
+                @foreach (var t in Templates)
+                {
+                    <option value="@t">@Path.GetFileName(t)</option>
+                }
+            </select>
+        </div>
+        <div class="mb-2">
+            <label>Mail To</label>
+            <input class="form-control" @bind="SelectedRule.MailTo" />
+        </div>
+        <div class="mb-2">
+            <label>Location (UNC or local path)</label>
+            <input class="form-control" @bind="SelectedRule.Location" />
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" @onclick="SaveRule">Save</button>
+            <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+            <button class="btn btn-outline-success" @onclick="GenerateSamplePdf" disabled="@(string.IsNullOrWhiteSpace(SelectedRule?.TemplateFile))">Generate PDF</button>
+        </div>
+
+        <hr />
+
+        <h5>Templates</h5>
+        <InputFile OnChange="OnTemplateUpload" />
+        <small class="form-text text-muted">Upload an HTML template to <b>wwwroot/templates</b>.</small>
+        <ul>
+            @foreach (var t in Templates)
+            {
+                <li>@Path.GetFileName(t)</li>
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+    List<ClaimsPortal.Services.LetterRule> Rules = new();
+    List<string> Templates = new();
+    ClaimsPortal.Services.LetterRule SelectedRule = new();
+    bool IsNew = false;
+
+    protected override void OnInitialized()
+    {
+        Rules = ConfigStore.GetAll().ToList();
+        LoadTemplates();
+    }
+
+    void LoadTemplates()
+    {
+        var dir = Path.Combine(Env.ContentRootPath, "wwwroot", "templates");
+        Directory.CreateDirectory(dir);
+        Templates = Directory.GetFiles(dir, "*.html").ToList();
+    }
+
+    void NewRule()
+    {
+        SelectedRule = new ClaimsPortal.Services.LetterRule();
+        IsNew = true;
+    }
+
+    void EditRule(string id)
+    {
+        var r = Rules.FirstOrDefault(x => x.Id == id);
+        if (r != null)
+        {
+            // clone to avoid live editing list item until saved
+            SelectedRule = new ClaimsPortal.Services.LetterRule
+            {
+                Id = r.Id,
+                Coverage = r.Coverage,
+                Claimant = r.Claimant,
+                HasAttorney = r.HasAttorney,
+                DocumentName = r.DocumentName,
+                TemplateFile = r.TemplateFile,
+                MailTo = r.MailTo,
+                Location = r.Location
+            };
+            IsNew = false;
+        }
+    }
+
+    void CancelEdit()
+    {
+        SelectedRule = new ClaimsPortal.Services.LetterRule();
+        IsNew = false;
+    }
+
+    void SaveRule()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedRule.Id)) SelectedRule.Id = Guid.NewGuid().ToString();
+        ConfigStore.AddOrUpdate(SelectedRule);
+        Rules = ConfigStore.GetAll().ToList();
+        CancelEdit();
+    }
+
+    void Delete(string id)
+    {
+        ConfigStore.Delete(id);
+        Rules = ConfigStore.GetAll().ToList();
+        if (SelectedRule?.Id == id) CancelEdit();
+    }
+
+    async Task OnTemplateUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        var dir = Path.Combine(Env.ContentRootPath, "wwwroot", "templates");
+        Directory.CreateDirectory(dir);
+        var savePath = Path.Combine(dir, Path.GetFileName(file.Name));
+        await using var fs = File.Create(savePath);
+        await file.OpenReadStream().CopyToAsync(fs);
+        LoadTemplates();
+        StateHasChanged();
+    }
+
+    string? StatusMessage;
+
+    async Task GenerateSamplePdf()
+    {
+        if (SelectedRule == null || string.IsNullOrWhiteSpace(SelectedRule.TemplateFile))
+        {
+            StatusMessage = "No template selected.";
+            StateHasChanged();
+            return;
+        }
+
+        var templatesDir = Path.Combine(Env.ContentRootPath, "wwwroot", "templates");
+        var templatePath = Path.Combine(templatesDir, SelectedRule.TemplateFile);
+        if (!File.Exists(templatePath))
+        {
+            StatusMessage = "Template file not found.";
+            StateHasChanged();
+            return;
+        }
+
+        var placeholders = new Dictionary<string, string>
+        {
+            { "Extension Number", "1234" },
+            { "Agent Name", "Agent Sample" },
+            { "Agent Address", "100 Demo St" },
+            { "Agent City, State, Zip", "DemoCity, ST 00000" }
+        };
+
+        var outDir = !string.IsNullOrWhiteSpace(SelectedRule.Location) ? SelectedRule.Location : Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+        try { Directory.CreateDirectory(outDir); } catch { outDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters"); Directory.CreateDirectory(outDir); }
+
+        var filename = $"{Path.GetFileNameWithoutExtension(SelectedRule.TemplateFile)}_sample_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var outPath = Path.Combine(outDir, filename);
+
+        try
+        {
+            await LetterService.GeneratePdfFromTemplateAsync(SelectedRule.TemplateFile, placeholders, outPath);
+            StatusMessage = $"PDF generated: {outPath}";
+            // ensure a copy in GeneratedLetters for UI visibility and browser access
+            var copyTo = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters", Path.GetFileName(outPath));
+            Directory.CreateDirectory(Path.GetDirectoryName(copyTo) ?? Path.GetDirectoryName(outPath) ?? ".");
+            try { File.Copy(outPath, copyTo, overwrite: true); } catch { }
+
+            // Open the generated PDF in a new browser tab (served from /generated)
+            var webUrl = $"/generated/{Uri.EscapeDataString(Path.GetFileName(copyTo))}";
+            await JS.InvokeVoidAsync("open", webUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "PDF generation failed: " + ex.Message;
+        }
+
+        StateHasChanged();
+    }
+}

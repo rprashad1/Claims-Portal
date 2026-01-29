@@ -1,4 +1,10 @@
 using ClaimsPortal.Models;
+using System.Text.RegularExpressions;
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ClaimsPortal.Services;
 
@@ -31,13 +37,34 @@ public class MockClaimService : IClaimService
 {
     private readonly List<Claim> _claims = [];
     private int _claimCounter = 1000;
+    private readonly LetterService? _letterService;
+    private readonly LetterConfigStore? _configStore;
 
-    public Task<Claim> CreateClaimAsync(Claim claim)
+    public MockClaimService(LetterService? letterService = null, LetterConfigStore? configStore = null)
+    {
+        _letterService = letterService;
+        _configStore = configStore;
+    }
+
+    public async Task<Claim> CreateClaimAsync(Claim claim)
     {
         claim.CreatedDate = DateTime.Now;
         PopulateSubClaims(claim);
         _claims.Add(claim);
-        return Task.FromResult(claim);
+
+            try
+            {
+                if (_letterService != null && _configStore != null)
+                {
+                    await GenerateLettersForClaimAsync(claim, null);
+                }
+            }
+        catch
+        {
+            // Don't block claim creation if letter generation fails
+        }
+
+        return claim;
     }
 
     public Task<Claim?> GetClaimAsync(string claimNumber)
@@ -152,6 +179,136 @@ public class MockClaimService : IClaimService
             _claims[index] = claim;
         }
         return Task.CompletedTask;
+    }
+
+    private async Task GenerateLettersForClaimAsync(Claim claim, IEnumerable<string>? selectedRuleIds = null)
+    {
+        var rules = _configStore!.GetAll();
+        var generatedDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+        Directory.CreateDirectory(generatedDir);
+
+        HashSet<string>? selected = null;
+        if (selectedRuleIds != null)
+        {
+            selected = new HashSet<string>(selectedRuleIds, StringComparer.OrdinalIgnoreCase);
+        }
+
+        var hasAttorney = (claim.DriverAttorney != null)
+                         || claim.Passengers.Any(p => p.HasAttorney)
+                         || claim.ThirdParties.Any(t => t.HasAttorney);
+
+        foreach (var sub in claim.SubClaims)
+        {
+            foreach (var rule in rules)
+            {
+                if (!string.Equals(rule.Coverage, sub.Coverage, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (rule.HasAttorney != hasAttorney)
+                    continue;
+
+                bool claimantMatches = false;
+                static string NormalizeForMatch(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : Regex.Replace(s, "[^A-Za-z0-9]", "").ToLowerInvariant();
+
+                var ruleClaimNorm = NormalizeForMatch(rule.Claimant);
+                var subTypeNorm = NormalizeForMatch(sub?.ClaimType);
+                var subNameNorm = NormalizeForMatch(sub?.ClaimantName);
+
+                if (!string.IsNullOrEmpty(ruleClaimNorm))
+                {
+                    if (ruleClaimNorm.Contains("driver") && subTypeNorm.Contains("driver"))
+                        claimantMatches = true;
+                    else if (ruleClaimNorm.Contains("passenger") && subTypeNorm.Contains("passenger"))
+                        claimantMatches = true;
+                    else if (ruleClaimNorm.Contains("third") && subTypeNorm.Contains("third"))
+                        claimantMatches = true;
+                    else if (ruleClaimNorm == subNameNorm)
+                        claimantMatches = true;
+                    else if (ruleClaimNorm == NormalizeForMatch(sub?.ClaimType))
+                        claimantMatches = true;
+                }
+
+                if (!claimantMatches)
+                    continue;
+
+                // Respect user's selection if provided
+                if (selected != null && !selected.Contains(rule.Id))
+                    continue;
+
+                var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "ClaimNumber", claim.ClaimNumber ?? string.Empty },
+                    { "PolicyNumber", claim.PolicyInfo?.PolicyNumber ?? string.Empty },
+                    { "InsuredName", claim.PolicyInfo?.InsuredName ?? claim.InsuredParty?.Name ?? string.Empty },
+                    { "ClaimantName", sub?.ClaimantName ?? string.Empty },
+                    { "LossDate", claim.LossDetails != null ? claim.LossDetails.DateOfLoss.ToString("yyyy-MM-dd") : string.Empty },
+                    { "LocationAddress", claim.LossDetails?.Location ?? string.Empty },
+                    { "AddresseeName", rule.MailTo ?? claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
+                    { "AddresseeAddressLine1", claim.InsuredParty?.Address?.StreetAddress ?? string.Empty },
+                    { "AddresseeAddressLine2", claim.InsuredParty?.Address?.AddressLine2 ?? string.Empty },
+                    { "AddresseeCity", claim.InsuredParty?.Address?.City ?? string.Empty },
+                    { "AddresseeState", claim.InsuredParty?.Address?.State ?? string.Empty },
+                    { "AddresseePostalCode", claim.InsuredParty?.Address?.ZipCode ?? string.Empty },
+                    { "AdjusterName", !string.IsNullOrEmpty(sub?.AssignedAdjusterName) ? sub.AssignedAdjusterName : "Claims Adjuster" },
+                    { "AdjusterPhone", claim.PolicyInfo?.PhoneNumber ?? claim.InsuredParty?.PhoneNumber ?? string.Empty },
+                    { "AdjusterEmail", claim.PolicyInfo?.ContactEmail ?? claim.InsuredParty?.Email ?? string.Empty },
+                    { "TemplateName", rule?.TemplateFile ?? string.Empty },
+                    { "RuleName", rule?.DocumentName ?? string.Empty },
+                    { "GeneratedAt", DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm 'UTC'") }
+                };
+
+                // Decide template: prefer explicit TemplateFile, else derive from DocumentName
+                string? templateName = null;
+                if (!string.IsNullOrWhiteSpace(rule.TemplateFile))
+                {
+                    templateName = rule.TemplateFile;
+                }
+                else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+                {
+                    var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                    templateName = safe + ".html";
+                }
+
+                // Verify template exists under wwwroot/templates; skip if missing
+                var templatesDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "templates");
+                var templatePath = Path.Combine(templatesDir, templateName ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(templateName) || !File.Exists(templatePath))
+                {
+                    // Template missing for this rule, skip generation in mock path
+                    continue;
+                }
+
+                var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : generatedDir;
+                try
+                {
+                    Directory.CreateDirectory(outDir);
+                }
+                catch
+                {
+                    outDir = generatedDir;
+                    Directory.CreateDirectory(outDir);
+                }
+
+                var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                var filename = $"{safeDocName}_{claim.ClaimNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+                var outPath = Path.Combine(outDir, filename);
+
+                await _letterService!.GeneratePdfFromTemplateAsync(templateName, placeholders, outPath);
+
+                var copyTo = Path.Combine(generatedDir, Path.GetFileName(outPath));
+                try
+                {
+                    if (!string.Equals(Path.GetFullPath(outPath), Path.GetFullPath(copyTo), StringComparison.OrdinalIgnoreCase))
+                    {
+                        File.Copy(outPath, copyTo, overwrite: true);
+                    }
+                }
+                catch
+                {
+                    // ignore copy errors
+                }
+            }
+        }
     }
 
     public string GenerateClaimNumber()

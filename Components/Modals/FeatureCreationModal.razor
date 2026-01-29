@@ -1,6 +1,6 @@
 @using ClaimsPortal.Data
-@using Microsoft.EntityFrameworkCore
-@inject ClaimsPortalDbContext DbContext
+@using ClaimsPortal.Services
+@inject IDatabaseEntityService EntityService
 
 <div class="modal fade" id="featureCreationModal" tabindex="-1" role="dialog" aria-labelledby="featureCreationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
@@ -182,11 +182,8 @@
 
     private async Task LoadAdjustersAsync()
     {
-        // Load adjusters from EntityMaster where PartyType = 'Adjuster' or VendorType = 'Adjuster'
-        Adjusters = await DbContext.EntityMasters
-            .Where(e => (e.PartyType == "Adjuster" || e.VendorType == "Adjuster") && e.EntityStatus == 'Y')
-            .OrderBy(e => e.EntityName)
-            .ToListAsync();
+        // Load adjusters via the database entity service
+        Adjusters = await EntityService.GetAdjustersAsync();
 
         // If no adjusters found in database, use a fallback list for demonstration
         if (!Adjusters.Any())

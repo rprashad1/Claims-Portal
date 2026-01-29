@@ -12,11 +12,11 @@ namespace ClaimsPortal.Services
     /// </summary>
     public class EntityCreationService
     {
-        private readonly Data.ClaimsPortalDbContext _context;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<Data.ClaimsPortalDbContext> _dbFactory;
 
-        public EntityCreationService(Data.ClaimsPortalDbContext context)
+        public EntityCreationService(Microsoft.EntityFrameworkCore.IDbContextFactory<Data.ClaimsPortalDbContext> dbFactory)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
         }
 
         public async Task<long> CreateReportedByEntityAsync(Models.ClaimLossDetails lossDetails, string createdBy)
@@ -37,26 +37,29 @@ namespace ClaimsPortal.Services
                 CreatedBy = createdBy
             };
 
-            _context.EntityMasters.Add(entity);
-            await _context.SaveChangesAsync();
-
-            if (lossDetails.ReportedByAddress != null && lossDetails.ReportedByAddress.HasAnyAddress)
+            using (var ctx = _dbFactory.CreateDbContext())
             {
-                var addr = new Data.AddressMaster
-                {
-                    EntityId = entity.EntityId,
-                    AddressType = 'M',
-                    StreetAddress = lossDetails.ReportedByAddress.StreetAddress,
-                    Apt = lossDetails.ReportedByAddress.AddressLine2,
-                    City = lossDetails.ReportedByAddress.City,
-                    State = lossDetails.ReportedByAddress.State,
-                    ZipCode = lossDetails.ReportedByAddress.ZipCode,
-                    CreatedDate = DateTime.Now,
-                    CreatedBy = createdBy
-                };
+                ctx.EntityMasters.Add(entity);
+                await ctx.SaveChangesAsync();
 
-                _context.Addresses.Add(addr);
-                await _context.SaveChangesAsync();
+                if (lossDetails.ReportedByAddress != null && lossDetails.ReportedByAddress.HasAnyAddress)
+                {
+                    var addr = new Data.AddressMaster
+                    {
+                        EntityId = entity.EntityId,
+                        AddressType = 'M',
+                        StreetAddress = lossDetails.ReportedByAddress.StreetAddress,
+                        Apt = lossDetails.ReportedByAddress.AddressLine2,
+                        City = lossDetails.ReportedByAddress.City,
+                        State = lossDetails.ReportedByAddress.State,
+                        ZipCode = lossDetails.ReportedByAddress.ZipCode,
+                        CreatedDate = DateTime.Now,
+                        CreatedBy = createdBy
+                    };
+
+                    ctx.Addresses.Add(addr);
+                    await ctx.SaveChangesAsync();
+                }
             }
 
             return entity.EntityId;

@@ -5,9 +5,16 @@
 @using ClaimsPortal.Components.Modals
 @using ClaimsPortal.Components.Shared
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Logging
 @inject IDatabaseClaimService DatabaseClaimService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
+@inject ILogger<ClaimDetail> Logger
+@inject ClaimsPortal.Services.LetterService LetterService
+@inject ClaimsPortal.Services.LetterConfigStore ConfigStore
+@using Microsoft.EntityFrameworkCore
+@using System.IO
+@inject ClaimsPortal.Data.ClaimsPortalDbContext Db
 @rendermode InteractiveServer
 
 <div class="container-fluid py-4">
@@ -117,6 +124,11 @@
                     <i class="bi bi-chat-dots"></i> Communication
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(ActiveTab == "letters" ? "active" : "")" @onclick="@(() => SetActiveTab("letters"))" type="button">
+                    <i class="bi bi-envelope"></i> Letters
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -125,6 +137,86 @@
             {
                 <div class="tab-pane fade show active">
                     <SubClaimsSummaryGrid SubClaims="@Claim.SubClaims" OnSubClaimStatusChanged="RefreshClaimAsync" />
+                </div>
+            }
+
+            <!-- Letters Tab -->
+            @if (ActiveTab == "letters")
+            {
+                <div class="tab-pane fade show active">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-inbox"></i> Auto-generated Letters for this Claim</h6>
+                                </div>
+                                <div class="card-body">
+                                    @if (ClaimFiles.Count == 0)
+                                    {
+                                        <div class="text-muted">No generated letters found for this claim.</div>
+                                    }
+                                    else
+                                    {
+                                        <table class="table table-sm">
+                                            <thead><tr><th>Name</th><th>Date</th><th></th></tr></thead>
+                                            <tbody>
+                                                @foreach (var f in ClaimFiles)
+                                                {
+                                                    <tr>
+                                                        <td>@Path.GetFileName(f)</td>
+                                                        <td>@File.GetCreationTime(f).ToString("g")</td>
+                                                        <td><a href="/generated/@Path.GetFileName(f)" target="_blank">View</a></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-send"></i> Manual Generate Letter</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <label class="form-label">Select Sub-Claim / Feature</label>
+                                        <select class="form-select" @bind="SelectedSubClaimId">
+                                            <option value="">-- select --</option>
+                                            @foreach (var s in Claim.SubClaims)
+                                            {
+                                                <option value="@s.Id">Feature @s.FeatureNumber - @s.Coverage (@s.ClaimType)</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label">Select Document Rule / Template</label>
+                                        <select class="form-select" @bind="SelectedRuleId">
+                                            <option value="">-- select --</option>
+                                            @foreach (var r in Rules)
+                                            {
+                                                <option value="@r.Id">@r.DocumentName (@r.Coverage / @r.Claimant)</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary" @onclick="GenerateForSubClaim" disabled="@(string.IsNullOrWhiteSpace(SelectedSubClaimId) || string.IsNullOrWhiteSpace(SelectedRuleId))">Generate</button>
+                                        <button class="btn btn-outline-secondary" @onclick="OpenEditor" disabled="@(string.IsNullOrWhiteSpace(SelectedRuleId) || string.IsNullOrWhiteSpace(SelectedSubClaimId))">Edit Letter</button>
+                                        <button class="btn btn-secondary" @onclick="RefreshClaimLetters">Refresh</button>
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(LettersStatus))
+                                    {
+                                        <div class="mt-2"><small class="text-muted">@LettersStatus</small></div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             }
 
@@ -1077,6 +1169,11 @@
     private Claim? Claim;
     private bool IsLoading = true;
     private string ActiveTab = "subclaims";
+    private List<ClaimsPortal.Data.LetterGenAdminRule> Rules = new();
+    private List<string> ClaimFiles = new();
+    private string SelectedSubClaimId = string.Empty;
+    private string SelectedRuleId = string.Empty;
+    private string LettersStatus = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1098,14 +1195,17 @@
                 Claim = await DatabaseClaimService.GetClaimWithDetailsAsync(ClaimNumber);
                 try
                 {
-                    Console.WriteLine($"[DEBUG] ClaimDetail loaded {ClaimNumber} PropertyDamages.Count={Claim?.PropertyDamages?.Count}");
+                    Logger?.LogDebug("[DEBUG] ClaimDetail loaded {ClaimNumber} PropertyDamages.Count={Count}", ClaimNumber, Claim?.PropertyDamages?.Count);
                 }
                 catch { }
+                // load rules from database and generated files for this claim
+                Rules = await Db.LetterGenAdminRules.Where(r => r.IsActive).OrderBy(r => r.Priority).ToListAsync();
+                await LoadClaimFiles();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading claim: {ex.Message}");
+            Logger?.LogError(ex, "Error loading claim");
             Claim = null;
         }
         finally
@@ -1114,10 +1214,209 @@
         }
     }
 
+    private async Task LoadClaimFiles()
+    {
+        ClaimFiles.Clear();
+        try
+        {
+            var generatedDir = Path.Combine(Environment.CurrentDirectory, "GeneratedLetters");
+            Directory.CreateDirectory(generatedDir);
+            if (!string.IsNullOrWhiteSpace(Claim?.ClaimNumber))
+            {
+                var all = Directory.GetFiles(generatedDir, "*.pdf").ToList();
+                var local = all.Where(f => Path.GetFileName(f).IndexOf(Claim.ClaimNumber, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
+                // Include DB-recorded documents for this claim (by filename containing claim number)
+                try
+                {
+                    var dbDocs = await Db.LetterGenGeneratedDocuments
+                        .Where(d => d.ClaimNumber == Claim.ClaimNumber || (d.FileName != null && d.FileName.Contains(Claim.ClaimNumber)))
+                        .OrderByDescending(d => d.CreatedAt)
+                        .ToListAsync();
+
+                    foreach (var d in dbDocs)
+                    {
+                        var expectedName = Path.GetFileName(d.FileName) ?? Path.GetFileName(d.StoragePath ?? string.Empty);
+                        if (string.IsNullOrEmpty(expectedName)) continue;
+                        var localPath = Path.Combine(generatedDir, expectedName);
+                        if (!File.Exists(localPath) && !string.IsNullOrEmpty(d.StoragePath) && File.Exists(d.StoragePath))
+                        {
+                            try { File.Copy(d.StoragePath, localPath, overwrite: true); } catch { }
+                        }
+                        if (File.Exists(localPath) && !local.Contains(localPath)) local.Add(localPath);
+                    }
+                }
+                catch { }
+
+                ClaimFiles = local.OrderByDescending(f => File.GetCreationTime(f)).ToList();
+            }
+        }
+        catch { }
+    }
+
     private async Task RefreshClaimAsync()
     {
         await LoadClaimAsync();
         StateHasChanged();
+    }
+
+    private async Task RefreshClaimLetters()
+    {
+        await LoadClaimFiles();
+        StateHasChanged();
+    }
+
+    private async Task GenerateForSubClaim()
+    {
+        LettersStatus = string.Empty;
+        if (Claim == null) return;
+        var sub = Claim.SubClaims.FirstOrDefault(s => s.Id.ToString() == SelectedSubClaimId);
+        var rule = Rules.FirstOrDefault(r => r.Id.ToString() == SelectedRuleId);
+        if (sub == null || rule == null)
+        {
+            LettersStatus = "Please select a sub-claim and a rule.";
+            return;
+        }
+
+        // Decide template: prefer explicit TemplateFile, else derive from DocumentName
+        string? templateFile = null;
+        if (!string.IsNullOrWhiteSpace(rule.TemplateFile))
+        {
+            templateFile = rule.TemplateFile;
+        }
+        else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+        {
+            var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+            templateFile = safe + ".html";
+        }
+
+        // Verify template exists under wwwroot/templates
+        var templatesDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "templates");
+        var templatePath = Path.Combine(templatesDir, templateFile ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(templateFile) || !File.Exists(templatePath))
+        {
+            LettersStatus = $"Template not found for rule '{rule?.DocumentName ?? rule?.Id.ToString() }'";
+            return;
+        }
+
+        var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Core claim/subclaim fields used by templates
+            { "ClaimNumber", Claim.ClaimNumber ?? string.Empty },
+            { "PolicyNumber", Claim.PolicyNumber ?? Claim.PolicyInfo?.PolicyNumber ?? string.Empty },
+            { "InsuredName", Claim.PolicyInfo?.InsuredName ?? Claim.InsuredParty?.Name ?? string.Empty },
+            { "ClaimantName", sub?.ClaimantName ?? string.Empty },
+            { "LossDate", Claim.LossDetails != null ? Claim.LossDetails.DateOfLoss.ToString("yyyy-MM-dd") : string.Empty },
+            { "LocationAddress", Claim.LossDetails?.Location ?? string.Empty },
+
+            // Addressee / recipient placeholders (defaults to insured/contact information)
+            { "AddresseeName", rule.MailTo ?? Claim.InsuredParty?.Name ?? sub?.ClaimantName ?? string.Empty },
+            { "AddresseeAddressLine1", Claim.InsuredParty?.Address?.StreetAddress ?? string.Empty },
+            { "AddresseeAddressLine2", Claim.InsuredParty?.Address?.AddressLine2 ?? string.Empty },
+            { "AddresseeCity", Claim.InsuredParty?.Address?.City ?? string.Empty },
+            { "AddresseeState", Claim.InsuredParty?.Address?.State ?? string.Empty },
+            { "AddresseePostalCode", Claim.InsuredParty?.Address?.ZipCode ?? string.Empty },
+            { "AddresseeSalutation", !string.IsNullOrEmpty(Claim.InsuredParty?.Name) ? ("Dear " + Claim.InsuredParty.Name.Split(' ')[0]) : "To whom it may concern" },
+
+            // Adjuster / sender info
+            { "AdjusterName", !string.IsNullOrEmpty(sub?.AssignedAdjusterName) ? sub.AssignedAdjusterName : "Claims Adjuster" },
+            { "AdjusterPhone", Claim.PolicyInfo?.PhoneNumber ?? Claim.InsuredParty?.PhoneNumber ?? string.Empty },
+            { "AdjusterEmail", Claim.PolicyInfo?.ContactEmail ?? Claim.InsuredParty?.Email ?? string.Empty },
+
+            // Template / rule metadata
+            { "TemplateName", templateFile ?? string.Empty },
+            { "RuleName", rule?.DocumentName ?? string.Empty },
+
+            // Generation metadata
+            { "GeneratedAt", DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm 'UTC'") },
+
+            // Backwards-compatible keys some existing callers use
+            { "Extension Number", Claim.InsuredParty?.PhoneNumber ?? Claim.PolicyInfo?.PhoneNumber ?? string.Empty },
+            { "Agent Name", Claim.InsuredParty?.Name ?? Claim.PolicyInfo?.InsuredName ?? string.Empty },
+            { "Agent Address", Claim.InsuredParty?.Address?.GetFormattedAddress() ?? string.Empty },
+            { "Agent City, State, Zip", Claim.InsuredParty?.Address?.GetCityStateZip() ?? string.Empty }
+        };
+
+        var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+        try { Directory.CreateDirectory(outDir); } catch { outDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters"); Directory.CreateDirectory(outDir); }
+
+        var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+        var filename = $"{safeDocName}_{Claim.ClaimNumber}_F{sub.FeatureNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var outPath = Path.Combine(outDir, filename);
+
+        try
+        {
+            await LetterService.GeneratePdfFromTemplateAsync(templateFile, placeholders, outPath);
+            // copy to generated folder and open
+            var generatedDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
+            Directory.CreateDirectory(generatedDir);
+            var copyTo = Path.Combine(generatedDir, Path.GetFileName(outPath));
+            try { File.Copy(outPath, copyTo, overwrite: true); } catch { }
+
+            // Persist metadata to DB
+            try
+            {
+                var fi = new FileInfo(outPath);
+                var doc = new LetterGenGeneratedDocument
+                {
+                    Id = Guid.NewGuid(),
+                    RuleId = rule.Id,
+                    ClaimNumber = Claim.ClaimNumber,
+                    SubClaimId = sub.Id,
+                    SubClaimFeatureNumber = sub.FeatureNumber,
+                    DocumentNumber = Claim.ClaimNumber,
+                    FileName = Path.GetFileName(outPath),
+                    StorageProvider = "filesystem",
+                    StoragePath = outPath,
+                    Content = null,
+                    ContentType = "application/pdf",
+                    FileSize = fi.Exists ? fi.Length : (long?)null,
+                    MailTo = rule.MailTo,
+                    CreatedBy = null,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                Db.LetterGenGeneratedDocuments.Add(doc);
+                await Db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogWarning(ex, "Failed to save letter metadata");
+            }
+
+            await LoadClaimFiles();
+            var webUrl = $"/generated/{Uri.EscapeDataString(Path.GetFileName(copyTo))}";
+            await JS.InvokeVoidAsync("open", webUrl, "_blank");
+            LettersStatus = "PDF generated.";
+        }
+        catch (Exception ex)
+        {
+            LettersStatus = "PDF generation failed: " + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void OpenEditor()
+    {
+        try
+        {
+            var rule = Rules.FirstOrDefault(r => r.Id.ToString() == SelectedRuleId);
+            var sub = Claim?.SubClaims.FirstOrDefault(s => s.Id.ToString() == SelectedSubClaimId);
+            if (rule == null || sub == null) return;
+
+            // Determine template file name
+            string? templateFile = null;
+            if (!string.IsNullOrWhiteSpace(rule.TemplateFile)) templateFile = rule.TemplateFile;
+            else if (!string.IsNullOrWhiteSpace(rule.DocumentName))
+            {
+                var safe = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+                templateFile = safe + ".html";
+            }
+            if (string.IsNullOrWhiteSpace(templateFile)) return;
+
+            var url = $"/letters/edit/{Uri.EscapeDataString(Claim.ClaimNumber)}/{Uri.EscapeDataString(Claim.ClaimNumber)}_{sub.FeatureNumber}/{Uri.EscapeDataString(templateFile)}";
+            JS.InvokeVoidAsync("open", url, "_blank");
+        }
+        catch { }
     }
 
     private void SetActiveTab(string tab)
@@ -1295,8 +1594,8 @@
             </div>
             @if (party.Address != null && party.Address.HasAnyAddress) { <div class="row g-3 mb-3"><div class="col-12"><small class="text-muted d-block">Address</small><strong>@party.Address.GetFormattedAddress()</strong></div></div> }
 
-            @* If this party is a passenger and has a selected VIN, show the assigned vehicle details (VIN Year/Make/Model) *@
-            @if (party.Type == "Passenger" && !string.IsNullOrEmpty(party.SelectedVehicleVin))
+            @* If this party has a selected VIN, show the assigned vehicle details (VIN Year/Make/Model) *@
+            @if (!string.IsNullOrEmpty(party.SelectedVehicleVin))
             {
                 var assignedVehicle = Claim?.ThirdParties?.FirstOrDefault(tp => tp.Type == "Vehicle" && tp.Vehicle != null && tp.Vehicle.Vin == party.SelectedVehicleVin)?.Vehicle;
                 <div class="row g-3 mb-3">

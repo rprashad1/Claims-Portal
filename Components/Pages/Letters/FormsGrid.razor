@@ -1,0 +1,125 @@
+@page "/letters/forms"
+@using System.IO
+@using ClaimsPortal.Services
+@inject ClaimsPortal.Services.LetterService LetterService
+@inject NavigationManager Nav
+@inject ClaimsPortal.Services.LetterConfigStore ConfigStore
+@inject ClaimsPortal.Services.IDatabaseClaimService DatabaseClaimService
+@inject IJSRuntime JS
+
+<h3>Generated Letters</h3>
+
+<h5>Manual Generate</h5>
+<div class="d-flex gap-2 mb-2">
+    <input class="form-control" placeholder="Claim Number or FNOL" style="max-width:240px;" @bind="ClaimNumber" />
+    <select class="form-select" style="max-width:320px;" @bind="SelectedRuleId">
+        <option value="">Select rule/template</option>
+        @foreach (var r in Rules)
+        {
+            <option value="@r.Id">@r.DocumentName (@r.Coverage / @r.Claimant)</option>
+        }
+    </select>
+    <button class="btn btn-primary" @onclick="GenerateForClaim" disabled="@(string.IsNullOrWhiteSpace(ClaimNumber) || string.IsNullOrWhiteSpace(SelectedRuleId))">Generate for Claim</button>
+</div>
+
+<button class="btn btn-primary" @onclick="ManualGenerate">Generate BI Sign Letter (Manual)</button>
+
+<table class="table mt-3">
+    <thead><tr><th>Name</th><th>Date</th><th>Action</th></tr></thead>
+    <tbody>
+        @foreach (var f in Files)
+        {
+            <tr>
+                <td>@Path.GetFileName(f)</td>
+                <td>@File.GetCreationTime(f).ToString("g")</td>
+                <td><a href="/generated/@Path.GetFileName(f)" target="_blank">View</a></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    List<string> Files = new();
+    List<ClaimsPortal.Services.LetterRule> Rules = new();
+    string generatedDir = Path.Combine(Environment.CurrentDirectory, "GeneratedLetters");
+    string ClaimNumber = string.Empty;
+    string SelectedRuleId = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        Directory.CreateDirectory(generatedDir);
+        Files = Directory.GetFiles(generatedDir, "*.pdf").OrderByDescending(f => File.GetCreationTime(f)).ToList();
+        Rules = ConfigStore.GetAll().ToList();
+    }
+
+    async Task ManualGenerate()
+    {
+        var placeholders = new Dictionary<string, string>
+        {
+            {"Extension Number","1234"},
+            {"Agent Name","Agent Bob"},
+            {"Agent Address","123 Main St"},
+            {"Agent City, State, Zip","Anytown, ST 12345"}
+        };
+        var filename = $"BI_Sign_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var outPath = Path.Combine(generatedDir, filename);
+        await LetterService.GeneratePdfFromTemplateAsync("BI_Sign_Letter.html", placeholders, outPath);
+        Files.Insert(0, outPath);
+        // open in new tab
+        var webUrl = $"/generated/{Uri.EscapeDataString(Path.GetFileName(outPath))}";
+        await JS.InvokeVoidAsync("open", webUrl, "_blank");
+        StateHasChanged();
+    }
+
+    async Task GenerateForClaim()
+    {
+        var rule = Rules.FirstOrDefault(r => r.Id == SelectedRuleId);
+        if (rule == null) return;
+
+        // fetch claim details
+        var claim = await DatabaseClaimService.GetClaimWithDetailsAsync(ClaimNumber);
+        if (claim == null)
+        {
+            // show simple alert
+            await JS.InvokeVoidAsync("alert", "Claim not found: " + ClaimNumber);
+            return;
+        }
+
+        // build placeholders from claim
+        var placeholders = new Dictionary<string, string>
+        {
+            { "Extension Number", claim.InsuredParty?.PhoneNumber ?? claim.PolicyInfo?.PhoneNumber ?? "" },
+            { "Agent Name", claim.InsuredParty?.Name ?? claim.PolicyInfo?.InsuredName ?? "" },
+            { "Agent Address", claim.InsuredParty?.Address?.GetFormattedAddress() ?? "" },
+            { "Agent City, State, Zip", claim.InsuredParty?.Address?.GetCityStateZip() ?? "" }
+        };
+
+        // template file
+        var templateFile = !string.IsNullOrWhiteSpace(rule.TemplateFile) ? rule.TemplateFile : "BI_Sign_Letter.html";
+
+        var outDir = !string.IsNullOrWhiteSpace(rule.Location) ? rule.Location : generatedDir;
+        try { Directory.CreateDirectory(outDir); } catch { outDir = generatedDir; Directory.CreateDirectory(outDir); }
+
+        var safeDocName = string.Join("_", rule.DocumentName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+        var filename = $"{safeDocName}_{ClaimNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var outPath = Path.Combine(outDir, filename);
+
+        try
+        {
+            await LetterService.GeneratePdfFromTemplateAsync(templateFile, placeholders, outPath);
+            // copy to generated for UI
+            var copyTo = Path.Combine(generatedDir, Path.GetFileName(outPath));
+            try { File.Copy(outPath, copyTo, overwrite: true); } catch { }
+            Files.Insert(0, copyTo);
+            // open in new tab
+            var webUrl = $"/generated/{Uri.EscapeDataString(Path.GetFileName(copyTo))}";
+            await JS.InvokeVoidAsync("open", webUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "PDF generation failed: " + ex.Message);
+        }
+
+        StateHasChanged();
+    }
+}

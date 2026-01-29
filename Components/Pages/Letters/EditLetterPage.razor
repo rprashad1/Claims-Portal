@@ -1,0 +1,76 @@
+@page "/letters/edit/{ClaimNumber}/{DocumentNumber}/{TemplateName}"
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<h3>Edit Letter</h3>
+<p class="text-muted">Claim: @ClaimNumber • Document: @DocumentNumber • Template: @TemplateName</p>
+
+<div class="mb-3">
+    <a class="btn btn-outline-primary me-2" target="_blank" href="/api/letters/form/render/@(Uri.EscapeDataString(TemplateName))">Open rendered HTML</a>
+    <button class="btn btn-outline-secondary" @onclick="ReloadRendered">Reload</button>
+</div>
+
+    <div class="mt-3">
+        <h6>Debug</h6>
+        <div class="mb-2">Rendered HTML length: @(renderedHtml?.Length ?? 0)</div>
+        @if (!string.IsNullOrEmpty(renderedHtml))
+        {
+            <div class="mb-2">
+                <label class="form-label">HTML snippet (first 500 chars)</label>
+                <textarea class="form-control" rows="12" readonly>@((renderedHtml.Length > 500) ? renderedHtml.Substring(0, 500) : renderedHtml)</textarea>
+            </div>
+        }
+    </div>
+
+@code {
+    [Parameter] public string ClaimNumber { get; set; } = string.Empty;
+    [Parameter] public string DocumentNumber { get; set; } = string.Empty;
+    [Parameter] public string TemplateName { get; set; } = string.Empty;
+
+    private string? renderedHtml;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAndRenderAsync();
+    }
+
+    private async Task LoadAndRenderAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+
+            // load saved fields for this claim/document
+            var loadResp = await client.GetAsync($"/api/letters/form/load/{Uri.EscapeDataString(ClaimNumber)}/{Uri.EscapeDataString(DocumentNumber)}");
+            Dictionary<string, string> fields = new();
+            if (loadResp.IsSuccessStatusCode)
+            {
+                var loaded = await loadResp.Content.ReadFromJsonAsync<Dictionary<string, Dictionary<string, string>>>();
+                if (loaded != null && loaded.TryGetValue("fields", out var map)) fields = map;
+            }
+
+            var payload = new { templateName = TemplateName, fields = fields };
+            var resp = await client.PostAsJsonAsync("/api/letters/form/render", payload);
+            resp.EnsureSuccessStatusCode();
+            var html = await resp.Content.ReadAsStringAsync();
+            renderedHtml = html;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Load render failed: " + ex.Message);
+        }
+    }
+
+    private async Task ReloadRendered()
+    {
+        await LoadAndRenderAsync();
+    }
+
+    // Inline edit removed: this page now shows a read-only rendered preview and a link to open the rendered HTML.
+}
+
+@* Removed client-side auto-inject fallbacks and 'Force Load Template' button (unstable across environments). *@

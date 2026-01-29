@@ -1,0 +1,356 @@
+@page "/admin/lettergen"
+@rendermode InteractiveServer
+@using ClaimsPortal.Data
+@using System.Linq
+@using Microsoft.EntityFrameworkCore
+@using System.Text.RegularExpressions
+@inject ClaimsPortalDbContext Db
+@inject IJSRuntime JS
+@inject IWebHostEnvironment Env
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Letter Generation - Admin Rules</h2>
+            <p class="text-muted">Configure rules that drive automatic letter generation.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+
+    @if (ValidationErrors != null && ValidationErrors.Count > 0)
+    {
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach (var e in ValidationErrors)
+                {
+                    <li>@e</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="card mb-4">
+        <div class="card-header"><h6 class="mb-0">Add New Rule</h6></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Coverage</label>
+                    <input class="form-control" @bind="NewRule.Coverage" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Claimant</label>
+                    <input class="form-control" @bind="NewRule.Claimant" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Attorney Represented</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="NewRule.IsAttorneyRepresented" />
+                        <label class="form-check-label">Yes</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Document Name</label>
+                    <input class="form-control" @bind="NewRule.DocumentName" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Mail To (semicolon-separated)</label>
+                    <input class="form-control" @bind="NewRule.MailTo" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Location (UNC or path)</label>
+                    <input class="form-control" @bind="NewRule.Location" />
+                    <small class="text-muted">Example: C:\\Projects\\Forms\\BI or \\\\server\\Forms\\BI</small>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Template</label>
+                    <select class="form-select" @bind="NewRule.TemplateFile">
+                        <option value="">(use default)</option>
+                        @foreach (var t in Templates)
+                        {
+                            <option value="@Path.GetFileName(t)">@Path.GetFileName(t)</option>
+                        }
+                    </select>
+                    <small class="text-muted d-block">Upload HTML templates only. Recommended format: HTML template with placeholders like {PlaceholderName}.</small>
+                    <InputFile OnChange="OnTemplateUpload" />
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Priority</label>
+                    <input type="number" class="form-control" @bind="NewRule.Priority" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Active</label>
+                    <select class="form-select" @bind="NewRule.IsActive">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <div class="col-12 mt-2">
+                    @if (IsEditMode)
+                    {
+                        <button class="btn btn-success me-2" @onclick="SaveRule">Update Rule</button>
+                        <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary" @onclick="SaveRule">Save Rule</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h6 class="mb-0">Existing Rules</h6></div>
+        <div class="card-body">
+            @if (Rules == null)
+            {
+                <div>Loading...</div>
+            }
+            else if (Rules.Count == 0)
+            {
+                <div class="text-muted">No rules defined yet.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Coverage</th>
+                                <th>Claimant</th>
+                                <th>Attorney</th>
+                                <th>Document</th>
+                                <th>Mail To</th>
+                                <th>Location</th>
+                                <th>Priority</th>
+                                <th>Active</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Rules)
+                            {
+                                <tr>
+                                    <td>@r.Coverage</td>
+                                    <td>@r.Claimant</td>
+                                    <td>@(r.IsAttorneyRepresented ? "Yes" : "No")</td>
+                                    <td>@r.DocumentName</td>
+                                    <td>@r.MailTo</td>
+                                    <td>@r.Location</td>
+                                    <td>@r.Priority</td>
+                                    <td>@(r.IsActive ? "Active" : "Inactive")</td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-primary" @onclick="() => EditRule(r)">Edit</button>
+                                            <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(r)">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<LetterGenAdminRule>? Rules;
+    private LetterGenAdminRule NewRule = new LetterGenAdminRule();
+    private string? SuccessMessage;
+    private List<string> ValidationErrors = new List<string>();
+    private bool IsEditMode = false;
+    private List<string> Templates = new();
+
+    private async Task EditRule(LetterGenAdminRule r)
+    {
+        // Load fresh from DB to avoid tracking issues
+        var existing = await Db.LetterGenAdminRules.FindAsync(r.Id);
+        if (existing == null) return;
+        NewRule = new LetterGenAdminRule
+        {
+            Id = existing.Id,
+            Coverage = existing.Coverage,
+            Claimant = existing.Claimant,
+            IsAttorneyRepresented = existing.IsAttorneyRepresented,
+            DocumentName = existing.DocumentName,
+            TemplateFile = existing.TemplateFile,
+            MailTo = existing.MailTo,
+            Location = existing.Location,
+            Priority = existing.Priority,
+            Notes = existing.Notes,
+            IsActive = existing.IsActive
+        };
+        IsEditMode = true;
+        SuccessMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        NewRule = new LetterGenAdminRule();
+        IsEditMode = false;
+        SuccessMessage = null;
+    }
+
+    private async Task ConfirmDelete(LetterGenAdminRule r)
+    {
+        var ok = await JS.InvokeAsync<bool>("confirm", $"Delete rule '{r.DocumentName}'? This cannot be undone.");
+        if (!ok) return;
+        await DeleteRule(r.Id);
+    }
+
+    private async Task DeleteRule(long id)
+    {
+        var existing = await Db.LetterGenAdminRules.FindAsync(id);
+        if (existing == null) return;
+        Db.LetterGenAdminRules.Remove(existing);
+        await Db.SaveChangesAsync();
+        await LoadRules();
+        SuccessMessage = "Rule deleted.";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadTemplates();
+        await LoadRules();
+    }
+
+    void LoadTemplates()
+    {
+        try
+        {
+            var dir = Path.Combine(Env.ContentRootPath, "wwwroot", "templates");
+            Directory.CreateDirectory(dir);
+            Templates = Directory.GetFiles(dir, "*.html").ToList();
+        }
+        catch { Templates = new List<string>(); }
+    }
+
+    private async Task LoadRules()
+    {
+        Rules = await Db.LetterGenAdminRules.OrderBy(r => r.Priority).ToListAsync();
+        StateHasChanged();
+    }
+
+    private async Task<bool> ValidateRuleAsync()
+    {
+        ValidationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(NewRule.Coverage))
+            ValidationErrors.Add("Coverage is required.");
+        if (string.IsNullOrWhiteSpace(NewRule.Claimant))
+            ValidationErrors.Add("Claimant is required.");
+        if (string.IsNullOrWhiteSpace(NewRule.DocumentName))
+            ValidationErrors.Add("Document Name is required.");
+        if (string.IsNullOrWhiteSpace(NewRule.Location))
+            ValidationErrors.Add("Location is required.");
+
+        // Normalize Location (trim and remove trailing backslash)
+        if (!string.IsNullOrWhiteSpace(NewRule.Location))
+        {
+            NewRule.Location = NewRule.Location.Trim();
+            if (NewRule.Location.EndsWith("\\") && NewRule.Location.Length > 1)
+                NewRule.Location = NewRule.Location.TrimEnd('\\');
+        }
+
+        // Validate location format: drive path or UNC
+        if (!string.IsNullOrWhiteSpace(NewRule.Location))
+        {
+            var pattern = @"^([A-Za-z]:\\.*|\\\\[^\\\/]+\\.*)$"; // e.g. C:\path or \\server\share
+            if (!Regex.IsMatch(NewRule.Location, pattern))
+            {
+                ValidationErrors.Add("Location must be a valid drive path (C:\\...) or UNC path (\\\\server\\share\\...).");
+            }
+        }
+
+        // Duplicate check (Coverage+Claimant+IsAttorneyRepresented+DocumentName)
+        if (ValidationErrors.Count == 0)
+        {
+            var q = Db.LetterGenAdminRules.AsQueryable();
+            q = q.Where(r => r.Coverage == NewRule.Coverage && r.Claimant == NewRule.Claimant && r.IsAttorneyRepresented == NewRule.IsAttorneyRepresented && r.DocumentName == NewRule.DocumentName);
+            if (IsEditMode && NewRule.Id > 0)
+                q = q.Where(r => r.Id != NewRule.Id);
+
+            var exists = await q.AnyAsync();
+            if (exists)
+                ValidationErrors.Add("A rule with the same Coverage / Claimant / Attorney / Document already exists.");
+        }
+
+        return ValidationErrors.Count == 0;
+    }
+
+    private async Task SaveRule()
+    {
+        // Basic validation
+        // Validate fields and location format
+        var ok = await ValidateRuleAsync();
+        if (!ok)
+        {
+            SuccessMessage = null;
+            return;
+        }
+        if (IsEditMode && NewRule.Id > 0)
+        {
+            var existing = await Db.LetterGenAdminRules.FindAsync(NewRule.Id);
+            if (existing != null)
+            {
+                existing.Coverage = NewRule.Coverage;
+                existing.Claimant = NewRule.Claimant;
+                existing.IsAttorneyRepresented = NewRule.IsAttorneyRepresented;
+                existing.DocumentName = NewRule.DocumentName;
+                existing.TemplateFile = NewRule.TemplateFile;
+                existing.MailTo = NewRule.MailTo;
+                existing.Location = NewRule.Location;
+                existing.Priority = NewRule.Priority;
+                existing.Notes = NewRule.Notes;
+                existing.IsActive = NewRule.IsActive;
+                existing.UpdatedAt = DateTimeOffset.UtcNow;
+                await Db.SaveChangesAsync();
+                SuccessMessage = "Rule updated.";
+            }
+            IsEditMode = false;
+            NewRule = new LetterGenAdminRule();
+            await LoadRules();
+            return;
+        }
+
+        NewRule.CreatedAt = DateTimeOffset.UtcNow;
+        Db.LetterGenAdminRules.Add(NewRule);
+        await Db.SaveChangesAsync();
+
+        SuccessMessage = "Rule saved.";
+        NewRule = new LetterGenAdminRule();
+        await LoadRules();
+    }
+
+    private async Task OnTemplateUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        var ext = Path.GetExtension(file.Name)?.ToLowerInvariant();
+        if (ext != ".html" && ext != ".htm")
+        {
+            ValidationErrors.Clear();
+            ValidationErrors.Add("Only HTML templates are allowed. Please upload a .html file.");
+            StateHasChanged();
+            return;
+        }
+
+        var dir = Path.Combine(Env.ContentRootPath, "wwwroot", "templates");
+        Directory.CreateDirectory(dir);
+        var savePath = Path.Combine(dir, Path.GetFileName(file.Name));
+        await using var fs = File.Create(savePath);
+        await file.OpenReadStream().CopyToAsync(fs);
+        LoadTemplates();
+        NewRule.TemplateFile = Path.GetFileName(savePath);
+        StateHasChanged();
+    }
+}

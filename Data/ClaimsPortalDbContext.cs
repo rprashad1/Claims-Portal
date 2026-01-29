@@ -28,6 +28,12 @@ namespace ClaimsPortal.Data
         // Vendor Master Tables (separate from EntityMaster for performance)
         public DbSet<VendorMasterEntity> VendorMasters { get; set; }
         public DbSet<VendorAddressEntity> VendorAddresses { get; set; }
+        
+        // Letter generation admin tables
+        public DbSet<LetterGenAdminRule> LetterGenAdminRules { get; set; }
+        public DbSet<LetterGenGeneratedDocument> LetterGenGeneratedDocuments { get; set; }
+        public DbSet<LetterGenQueue> LetterGenQueue { get; set; }
+        public DbSet<LetterGenFormData> LetterGenFormData { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -52,6 +58,12 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<VendorMasterEntity>().ToTable("VendorMaster");
             modelBuilder.Entity<VendorAddressEntity>().ToTable("VendorAddress");
 
+            // Letter generation admin tables (map to existing DB names)
+            modelBuilder.Entity<LetterGenAdminRule>().ToTable("LetterGen_AdminRules");
+            modelBuilder.Entity<LetterGenGeneratedDocument>().ToTable("LetterGen_GeneratedDocuments");
+            modelBuilder.Entity<LetterGenQueue>().ToTable("LetterGen_Queue");
+                modelBuilder.Entity<LetterGenFormData>().ToTable("LetterGen_FormData");
+
             // Configure key mappings
             modelBuilder.Entity<LookupCode>().HasKey(l => l.LookupCodeId);
             modelBuilder.Entity<Policy>().HasKey(p => p.PolicyId);
@@ -70,6 +82,12 @@ namespace ClaimsPortal.Data
             // Vendor Master keys
             modelBuilder.Entity<VendorMasterEntity>().HasKey(v => v.VendorId);
             modelBuilder.Entity<VendorAddressEntity>().HasKey(va => va.VendorAddressId);
+
+            // Letter generation admin keys
+            modelBuilder.Entity<LetterGenAdminRule>().HasKey(l => l.Id);
+            modelBuilder.Entity<LetterGenGeneratedDocument>().HasKey(d => d.Id);
+            modelBuilder.Entity<LetterGenQueue>().HasKey(q => q.QueueId);
+            modelBuilder.Entity<LetterGenFormData>().HasKey(f => f.Id);
 
             // Configure relationships
             // NOTE: FNOL -> Policy relationship removed because Policy comes from external system
@@ -142,6 +160,64 @@ namespace ClaimsPortal.Data
         public string? CreatedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
         public string? ModifiedBy { get; set; }
+    }
+
+    // Letter generation admin rule entity
+    public class LetterGenAdminRule
+    {
+        public long Id { get; set; }
+        public string Coverage { get; set; } = string.Empty;         // e.g. BI
+        public string Claimant { get; set; } = string.Empty;         // e.g. Insured Vehicle Driver
+        public bool IsAttorneyRepresented { get; set; }              // true = represented
+        public string DocumentName { get; set; } = string.Empty;     // e.g. BI Sign Letter
+        public string? TemplateFile { get; set; }
+        public string MailTo { get; set; } = string.Empty;           // e.g. Claimant;Attorney
+        public string Location { get; set; } = string.Empty;         // UNC or path
+        public int Priority { get; set; } = 100;
+        public string? Notes { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string? CreatedBy { get; set; }
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+        public string? UpdatedBy { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+    }
+
+    // Generated document metadata
+    public class LetterGenGeneratedDocument
+    {
+        public System.Guid Id { get; set; } = System.Guid.NewGuid();
+        public long? RuleId { get; set; }
+        public string? ClaimNumber { get; set; }
+        public long? SubClaimId { get; set; }
+        public int? SubClaimFeatureNumber { get; set; }
+        public string? DocumentNumber { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public string StorageProvider { get; set; } = "filesystem"; // filesystem, azure, s3, db
+        public string? StoragePath { get; set; }
+        public byte[]? Content { get; set; }
+        public string ContentType { get; set; } = "application/pdf";
+        public long? FileSize { get; set; }
+        public string? Sha256Hash { get; set; }
+        public string? MailTo { get; set; }
+        public string? MailStatus { get; set; }
+        public DateTimeOffset? SentAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+    }
+
+    // Durable queue for letter generation jobs
+    public class LetterGenQueue
+    {
+        public long QueueId { get; set; }
+        public string ClaimNumber { get; set; } = string.Empty;
+        // Comma-separated rule ids (nullable = generate all)
+        public string? SelectedRuleIds { get; set; }
+        public string Status { get; set; } = "Pending"; // Pending, InProgress, Completed, Failed
+        public int Tries { get; set; } = 0;
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset? LastAttemptAt { get; set; }
+        public string? LastError { get; set; }
+        public string? ProcessingHostname { get; set; }
     }
 
     public class Policy

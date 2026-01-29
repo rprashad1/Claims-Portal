@@ -105,7 +105,7 @@ namespace ClaimsPortal.Services
 
     public class VendorSearchService : IVendorSearchService
     {
-        private readonly ClaimsPortalDbContext _context;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> _dbFactory;
 
         // Vendor type constants
         public static class VendorTypes
@@ -123,24 +123,23 @@ namespace ClaimsPortal.Services
             public const string Other = "Other";
         }
 
-        public VendorSearchService(ClaimsPortalDbContext context)
+        public VendorSearchService(Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> dbFactory)
         {
-            _context = context;
+            _dbFactory = dbFactory;
         }
 
         public async Task<List<VendorSearchResult>> SearchVendorsAsync(string searchTerm, string? vendorType = null, int maxResults = 20)
         {
-            var query = _context.VendorMasters
+            using var ctx = _dbFactory.CreateDbContext();
+            var query = ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .Where(v => v.VendorStatus == 'Y');
 
-            // Filter by vendor type if specified
             if (!string.IsNullOrEmpty(vendorType))
             {
                 query = query.Where(v => v.VendorType == vendorType);
             }
 
-            // Search by name
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var searchLower = searchTerm.ToLower();
@@ -160,7 +159,8 @@ namespace ClaimsPortal.Services
 
         public async Task<List<VendorSearchResult>> SearchHospitalsAsync(string searchTerm, int maxResults = 20)
         {
-            var query = _context.VendorMasters
+            using var ctx = _dbFactory.CreateDbContext();
+            var query = ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .Where(v => v.VendorStatus == 'Y' &&
                     (v.VendorType == VendorTypes.Hospital ||
@@ -184,7 +184,8 @@ namespace ClaimsPortal.Services
 
         public async Task<List<VendorSearchResult>> SearchAttorneysAsync(string searchTerm, string? attorneyType = null, int maxResults = 20)
         {
-            var query = _context.VendorMasters
+            using var ctx = _dbFactory.CreateDbContext();
+            var query = ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .Where(v => v.VendorStatus == 'Y' &&
                     (v.VendorType == VendorTypes.DefenseAttorney ||
@@ -192,7 +193,6 @@ namespace ClaimsPortal.Services
                      v.VendorType == "Plaintiff Attorneys" ||  // Legacy value
                      v.VendorType == "Attorney"));
 
-            // Filter by specific attorney type
             if (!string.IsNullOrEmpty(attorneyType))
             {
                 query = query.Where(v => v.VendorType == attorneyType ||
@@ -218,14 +218,14 @@ namespace ClaimsPortal.Services
 
         public async Task<List<VendorSearchResult>> SearchAuthoritiesAsync(string searchTerm, string? authorityType = null, int maxResults = 20)
         {
-            var query = _context.VendorMasters
+            using var ctx = _dbFactory.CreateDbContext();
+            var query = ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .Where(v => v.VendorStatus == 'Y' &&
                     (v.VendorType == VendorTypes.PoliceDepartment ||
                      v.VendorType == VendorTypes.FireDepartment ||
                      v.VendorType == "Fire Station"));  // Legacy value
 
-            // Filter by specific authority type
             if (!string.IsNullOrEmpty(authorityType))
             {
                 query = query.Where(v => v.VendorType == authorityType ||
@@ -254,8 +254,9 @@ namespace ClaimsPortal.Services
                 return new List<VendorSearchResult>();
 
             var nameLower = name.ToLower().Trim();
+            using var ctx = _dbFactory.CreateDbContext();
 
-            var query = _context.VendorMasters
+            var query = ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .Where(v => v.VendorStatus == 'Y' &&
                     v.VendorName != null &&
@@ -268,10 +269,9 @@ namespace ClaimsPortal.Services
 
             var vendors = await query.ToListAsync();
 
-            // Also check for partial matches
             if (vendors.Count == 0)
             {
-                var partialQuery = _context.VendorMasters
+                var partialQuery = ctx.VendorMasters
                     .Include(v => v.Addresses)
                     .Where(v => v.VendorStatus == 'Y' &&
                         v.VendorName != null &&
@@ -290,7 +290,8 @@ namespace ClaimsPortal.Services
 
         public async Task<VendorSearchResult?> GetVendorByIdAsync(long vendorId)
         {
-            var vendor = await _context.VendorMasters
+            using var ctx = _dbFactory.CreateDbContext();
+            var vendor = await ctx.VendorMasters
                 .Include(v => v.Addresses)
                 .FirstOrDefaultAsync(v => v.VendorId == vendorId);
 

@@ -8,16 +8,17 @@ namespace ClaimsPortal.Services
     /// </summary>
     public class DatabaseLookupService
     {
-        private readonly ClaimsPortalDbContext _context;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> _dbFactory;
 
-        public DatabaseLookupService(ClaimsPortalDbContext context)
+        public DatabaseLookupService(Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> dbFactory)
         {
-            _context = context;
+            _dbFactory = dbFactory;
         }
 
         public async Task<List<LookupCode>> GetLookupCodesAsync(string recordType)
         {
-            return await _context.LookupCodes
+            using var ctx = _dbFactory.CreateDbContext();
+            return await ctx.LookupCodes
                 .Where(l => l.RecordType == recordType && l.RecordStatus == 'Y')
                 .OrderBy(l => l.SortOrder ?? 0)
                 .ToListAsync();
@@ -25,7 +26,8 @@ namespace ClaimsPortal.Services
 
         public async Task<LookupCode?> GetLookupCodeAsync(string recordType, string recordCode)
         {
-            return await _context.LookupCodes
+            using var ctx = _dbFactory.CreateDbContext();
+            return await ctx.LookupCodes
                 .FirstOrDefaultAsync(l =>
                     l.RecordType == recordType &&
                     l.RecordCode == recordCode &&

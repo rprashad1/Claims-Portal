@@ -13,22 +13,24 @@ namespace ClaimsPortal.Services
 
     public class DatabasePolicyService : IDatabasePolicyService
     {
-        private readonly ClaimsPortalDbContext _context;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> _dbFactory;
 
-        public DatabasePolicyService(ClaimsPortalDbContext context)
+        public DatabasePolicyService(Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> dbFactory)
         {
-            _context = context;
+            _dbFactory = dbFactory;
         }
 
         public async Task<Data.Policy?> GetPolicyAsync(string policyNumber)
         {
-            return await _context.Policies
+            using var ctx = _dbFactory.CreateDbContext();
+            return await ctx.Policies
                 .FirstOrDefaultAsync(p => p.PolicyNumber == policyNumber);
         }
 
         public async Task<List<Data.Policy>> GetActivePoliciesAsync()
         {
-            return await _context.Policies
+            using var ctx = _dbFactory.CreateDbContext();
+            return await ctx.Policies
                 .Where(p => p.PolicyStatus == 'Y')
                 .OrderBy(p => p.PolicyNumber)
                 .ToListAsync();
@@ -37,16 +39,18 @@ namespace ClaimsPortal.Services
         public async Task<Data.Policy> CreatePolicyAsync(Data.Policy policy)
         {
             policy.CreatedDate = DateTime.Now;
-            _context.Policies.Add(policy);
-            await _context.SaveChangesAsync();
+            using var ctx = _dbFactory.CreateDbContext();
+            ctx.Policies.Add(policy);
+            await ctx.SaveChangesAsync();
             return policy;
         }
 
         public async Task<Data.Policy> UpdatePolicyAsync(Data.Policy policy)
         {
             policy.ModifiedDate = DateTime.Now;
-            _context.Policies.Update(policy);
-            await _context.SaveChangesAsync();
+            using var ctx = _dbFactory.CreateDbContext();
+            ctx.Policies.Update(policy);
+            await ctx.SaveChangesAsync();
             return policy;
         }
     }

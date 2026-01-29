@@ -10,12 +10,12 @@ namespace ClaimsPortal.Services;
 /// </summary>
 public class DatabaseVendorService : IVendorService
 {
-    private readonly ClaimsPortalDbContext _context;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> _dbFactory;
     private readonly string _currentUser = "System"; // TODO: Replace with actual user from auth
 
-    public DatabaseVendorService(ClaimsPortalDbContext context)
+    public DatabaseVendorService(Microsoft.EntityFrameworkCore.IDbContextFactory<ClaimsPortalDbContext> dbFactory)
     {
-        _context = context;
+        _dbFactory = dbFactory;
     }
 
     #region Search Operations
@@ -25,7 +25,8 @@ public class DatabaseVendorService : IVendorService
         if (string.IsNullOrWhiteSpace(searchTerm))
             return new List<Vendor>();
 
-        var vendors = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendors = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .Where(v => v.VendorStatus == 'Y' &&
                         (EF.Functions.Like(v.VendorName, $"%{searchTerm}%") ||
@@ -40,7 +41,8 @@ public class DatabaseVendorService : IVendorService
         if (string.IsNullOrWhiteSpace(feinNumber))
             return new List<Vendor>();
 
-        var vendors = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendors = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .Where(v => v.VendorStatus == 'Y' &&
                         v.FEINNumber == feinNumber.Trim())
@@ -51,7 +53,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<List<Vendor>> SearchVendorsAsync(string? searchTerm, VendorType? vendorType, VendorStatus? status)
     {
-        var query = _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var query = ctx.VendorMasters
             .Include(v => v.Addresses)
             .AsQueryable();
 
@@ -88,7 +91,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<Vendor?> GetVendorAsync(int vendorId)
     {
-        var vendor = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendor = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .FirstOrDefaultAsync(v => v.VendorId == vendorId);
 
@@ -97,7 +101,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<List<Vendor>> GetAllVendorsAsync(VendorStatus? status = null)
     {
-        var query = _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var query = ctx.VendorMasters
             .Include(v => v.Addresses)
             .AsQueryable();
 
@@ -118,33 +123,37 @@ public class DatabaseVendorService : IVendorService
         vendorEntity.CreatedDate = DateTime.Now;
         vendorEntity.CreatedBy = _currentUser;
 
-        _context.VendorMasters.Add(vendorEntity);
-        await _context.SaveChangesAsync();
-
-        // Now add the addresses with the new VendorId
-        if (vendor.Addresses != null && vendor.Addresses.Any())
+        using (var ctx = _dbFactory.CreateDbContext())
         {
-            foreach (var address in vendor.Addresses)
+            ctx.VendorMasters.Add(vendorEntity);
+            await ctx.SaveChangesAsync();
+
+            // Now add the addresses with the new VendorId
+            if (vendor.Addresses != null && vendor.Addresses.Any())
             {
-                var addrEntity = MapToVendorAddressEntity(address, vendorEntity.VendorId);
-                addrEntity.CreatedDate = DateTime.Now;
-                addrEntity.CreatedBy = _currentUser;
-                _context.VendorAddresses.Add(addrEntity);
+                foreach (var address in vendor.Addresses)
+                {
+                    var addrEntity = MapToVendorAddressEntity(address, vendorEntity.VendorId);
+                    addrEntity.CreatedDate = DateTime.Now;
+                    addrEntity.CreatedBy = _currentUser;
+                    ctx.VendorAddresses.Add(addrEntity);
+                }
+                await ctx.SaveChangesAsync();
             }
-            await _context.SaveChangesAsync();
+
+            // Reload with addresses to return complete vendor
+            var createdVendor = await ctx.VendorMasters
+                .Include(v => v.Addresses)
+                .FirstOrDefaultAsync(v => v.VendorId == vendorEntity.VendorId);
+
+            return MapToVendor(createdVendor!);
         }
-
-        // Reload with addresses to return complete vendor
-        var createdVendor = await _context.VendorMasters
-            .Include(v => v.Addresses)
-            .FirstOrDefaultAsync(v => v.VendorId == vendorEntity.VendorId);
-
-        return MapToVendor(createdVendor!);
     }
 
     public async Task<Vendor> UpdateVendorAsync(Vendor vendor)
     {
-        var existingVendor = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var existingVendor = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .FirstOrDefaultAsync(v => v.VendorId == vendor.Id);
 
@@ -160,7 +169,7 @@ public class DatabaseVendorService : IVendorService
         var existingAddresses = existingVendor.Addresses.ToList();
         foreach (var addr in existingAddresses)
         {
-            _context.VendorAddresses.Remove(addr);
+            ctx.VendorAddresses.Remove(addr);
         }
 
         // Add new addresses
@@ -171,14 +180,14 @@ public class DatabaseVendorService : IVendorService
                 var addrEntity = MapToVendorAddressEntity(address, existingVendor.VendorId);
                 addrEntity.CreatedDate = DateTime.Now;
                 addrEntity.CreatedBy = _currentUser;
-                _context.VendorAddresses.Add(addrEntity);
+                ctx.VendorAddresses.Add(addrEntity);
             }
         }
 
-        await _context.SaveChangesAsync();
+        await ctx.SaveChangesAsync();
 
         // Reload to get updated data with addresses
-        var updatedVendor = await _context.VendorMasters
+        var updatedVendor = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .FirstOrDefaultAsync(v => v.VendorId == existingVendor.VendorId);
 
@@ -187,7 +196,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<bool> DisableVendorAsync(int vendorId)
     {
-        var vendor = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendor = await ctx.VendorMasters
             .FirstOrDefaultAsync(v => v.VendorId == vendorId);
 
         if (vendor == null)
@@ -197,13 +207,14 @@ public class DatabaseVendorService : IVendorService
         vendor.ModifiedDate = DateTime.Now;
         vendor.ModifiedBy = _currentUser;
 
-        await _context.SaveChangesAsync();
+        await ctx.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> EnableVendorAsync(int vendorId)
     {
-        var vendor = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendor = await ctx.VendorMasters
             .FirstOrDefaultAsync(v => v.VendorId == vendorId);
 
         if (vendor == null)
@@ -213,7 +224,7 @@ public class DatabaseVendorService : IVendorService
         vendor.ModifiedDate = DateTime.Now;
         vendor.ModifiedBy = _currentUser;
 
-        await _context.SaveChangesAsync();
+        await ctx.SaveChangesAsync();
         return true;
     }
 
@@ -223,7 +234,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<VendorAddress> AddAddressAsync(int vendorId, VendorAddress address)
     {
-        var vendor = await _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var vendor = await ctx.VendorMasters
             .Include(v => v.Addresses)
             .FirstOrDefaultAsync(v => v.VendorId == vendorId);
 
@@ -242,15 +254,16 @@ public class DatabaseVendorService : IVendorService
         addrEntity.CreatedDate = DateTime.Now;
         addrEntity.CreatedBy = _currentUser;
 
-        _context.VendorAddresses.Add(addrEntity);
-        await _context.SaveChangesAsync();
+        ctx.VendorAddresses.Add(addrEntity);
+        await ctx.SaveChangesAsync();
 
         return MapToVendorAddress(addrEntity);
     }
 
     public async Task<VendorAddress> UpdateAddressAsync(int vendorId, VendorAddress address)
     {
-        var addrEntity = await _context.VendorAddresses
+        using var ctx = _dbFactory.CreateDbContext();
+        var addrEntity = await ctx.VendorAddresses
             .FirstOrDefaultAsync(a => a.VendorAddressId == address.Id && a.VendorId == vendorId);
 
         if (addrEntity == null)
@@ -259,7 +272,7 @@ public class DatabaseVendorService : IVendorService
         // Check for main address conflict
         if (address.AddressType == AddressTypeEnum.Main && GetAddressTypeChar(address.AddressType) != addrEntity.AddressType)
         {
-            var existingMain = await _context.VendorAddresses
+            var existingMain = await ctx.VendorAddresses
                 .AnyAsync(a => a.VendorId == vendorId && a.AddressType == 'M' && a.VendorAddressId != address.Id && a.AddressStatus == 'Y');
             if (existingMain)
                 throw new InvalidOperationException("Vendor can only have one main address");
@@ -269,26 +282,28 @@ public class DatabaseVendorService : IVendorService
         addrEntity.ModifiedDate = DateTime.Now;
         addrEntity.ModifiedBy = _currentUser;
 
-        await _context.SaveChangesAsync();
+        await ctx.SaveChangesAsync();
         return MapToVendorAddress(addrEntity);
     }
 
     public async Task<bool> DeleteAddressAsync(int vendorId, int addressId)
     {
-        var addrEntity = await _context.VendorAddresses
+        using var ctx = _dbFactory.CreateDbContext();
+        var addrEntity = await ctx.VendorAddresses
             .FirstOrDefaultAsync(a => a.VendorAddressId == addressId && a.VendorId == vendorId);
 
         if (addrEntity == null)
             return false;
 
-        _context.VendorAddresses.Remove(addrEntity);
-        await _context.SaveChangesAsync();
+        ctx.VendorAddresses.Remove(addrEntity);
+        await ctx.SaveChangesAsync();
         return true;
     }
 
     public async Task<VendorAddress?> GetMainAddressAsync(int vendorId)
     {
-        var addrEntity = await _context.VendorAddresses
+        using var ctx = _dbFactory.CreateDbContext();
+        var addrEntity = await ctx.VendorAddresses
             .FirstOrDefaultAsync(a => a.VendorId == vendorId && a.AddressType == 'M' && a.AddressStatus == 'Y');
 
         return addrEntity != null ? MapToVendorAddress(addrEntity) : null;
@@ -296,7 +311,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<List<VendorAddress>> GetActiveAddressesAsync(int vendorId)
     {
-        var addresses = await _context.VendorAddresses
+        using var ctx = _dbFactory.CreateDbContext();
+        var addresses = await ctx.VendorAddresses
             .Where(a => a.VendorId == vendorId && a.AddressStatus == 'Y')
             .ToListAsync();
 
@@ -309,7 +325,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<bool> IsFeinUniqueAsync(string feinNumber, int? excludeVendorId = null)
     {
-        var query = _context.VendorMasters
+        using var ctx = _dbFactory.CreateDbContext();
+        var query = ctx.VendorMasters
             .Where(v => v.FEINNumber == feinNumber.Trim());
 
         if (excludeVendorId.HasValue)
@@ -343,7 +360,8 @@ public class DatabaseVendorService : IVendorService
 
     public async Task<bool> HasValidMainAddressAsync(int vendorId)
     {
-        var mainAddress = await _context.VendorAddresses
+        using var ctx = _dbFactory.CreateDbContext();
+        var mainAddress = await ctx.VendorAddresses
             .FirstOrDefaultAsync(a => a.VendorId == vendorId && a.AddressType == 'M' && a.AddressStatus == 'Y');
 
         if (mainAddress == null)

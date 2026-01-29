@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BI BI Sign Letter</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #222; margin: 40px; }
+    .header { text-align: right; color: #555; }
+    .logo { float: left; max-height: 60px; }
+    .meta { margin-top: 10px; margin-bottom: 30px; }
+    .recipient { margin-top: 20px; margin-bottom: 20px; }
+    .content { margin-top: 10px; line-height: 1.45; }
+    .signature { margin-top: 60px; }
+    .sig-line { border-top: 1px solid #000; width: 300px; margin-top: 60px; }
+    .small { font-size: 0.9em; color: #666; }
+    table.keyvals { width: 100%; border-collapse: collapse; margin-top:10px; }
+    table.keyvals td.key { width: 180px; font-weight: bold; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>Generated: {{GeneratedAt}}</div>
+  </div>
+
+  <div style="clear:both"></div>
+
+  <h2>Business Interruption - Sign Letter</h2>
+
+  <div class="meta">
+    <table class="keyvals">
+      <tr><td class="key">Claim Number:</td><td>{{ClaimNumber}}</td></tr>
+      <tr><td class="key">Policy Number:</td><td>{{PolicyNumber}}</td></tr>
+      <tr><td class="key">Insured / Defendant:</td><td>{{InsuredName}}</td></tr>
+      <tr><td class="key">Claimant / Plaintiff:</td><td>{{ClaimantName}}</td></tr>
+      <tr><td class="key">Loss Date:</td><td>{{LossDate}}</td></tr>
+      <tr><td class="key">Location:</td><td>{{LocationAddress}}</td></tr>
+    </table>
+  </div>
+
+  <div class="recipient">
+    To: {{AddresseeName}}<br/>
+    {{AddresseeAddressLine1}}<br/>
+    {{AddresseeAddressLine2}}<br/>
+    {{AddresseeCity}}, {{AddresseeState}} {{AddresseePostalCode}}
+  </div>
+
+  <div class="content">
+    <p>Dear {{AddresseeSalutation}},</p>
+
+    <p>We are writing in relation to Claim <strong>{{ClaimNumber}}</strong> regarding the business interruption losses reported on <strong>{{LossDate}}</strong> at the above address. Our insured, <strong>{{InsuredName}}</strong>, has advised that the interruption to operations has resulted in a loss of income and additional expense.</p>
+
+    <p>This letter requests your cooperation in completing the attached sign letter form to confirm the period and magnitude of interruption to business. Your prompt completion and return of the signed statement will assist us in progressing the claim and assessing the appropriate loss quantum.</p>
+
+    <p>Enclosed you will find:</p>
+    <ul>
+      <li>Signed declaration form for business interruption details</li>
+      <li>Summary of known interruption dates and affected operations</li>
+    </ul>
+
+    <p>Please provide any supporting documents (accounts, payroll records, sales records) that will help corroborate the interruption period and amounts claimed.</p>
+
+    <p>If you have any questions, contact our office quoting the claim number above.</p>
+
+    <div class="signature">
+      <div>Sincerely,</div>
+      <div style="height:70px"></div>
+      <div class="sig-line"></div>
+      <div class="small">{{AdjusterName}}<br/>Claims Adjuster<br/>{{AdjusterPhone}} | {{AdjusterEmail}}</div>
+    </div>
+  </div>
+
+  <hr/>
+  <div class="small">This is an electronically generated document for claim {{ClaimNumber}}. Document template: {{TemplateName}} | Rule: {{RuleName}}</div>
+</body>
+</html>

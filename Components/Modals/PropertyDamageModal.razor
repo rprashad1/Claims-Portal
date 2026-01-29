@@ -72,6 +72,10 @@
                         <!-- Property Address (where the property is located) -->
                         <div class="mb-3">
                             <h6 class="mb-3">Property Location Address</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="propSameAsOwner" @bind="PropertyAddressSameAsOwner" />
+                                <label class="form-check-label" for="propSameAsOwner">Property Address same as Owner Address</label>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Street Address</label>
                                 <input type="text" class="form-control" @bind="PropertyDamage.PropertyAddress.StreetAddress" placeholder="Property Address" />
@@ -162,6 +166,7 @@
     private PropertyDamage? OriginalPropertyDamage = null;
     private string OwnerPhoneDisplay = "";
     private bool IsEditMode = false;
+    private bool PropertyAddressSameAsOwner = false;
 
     public async Task ShowAsync(PropertyDamage? existingProperty = null)
     {
@@ -195,6 +200,7 @@
             };
             OriginalPropertyDamage = null;
             OwnerPhoneDisplay = "";
+            PropertyAddressSameAsOwner = false;
         }
         
         await JS.InvokeVoidAsync("ShowModal", "propertyDamageModal");
@@ -231,6 +237,19 @@
                !string.IsNullOrWhiteSpace(PropertyDamage.DamageDescription);
         // Note: Damage Estimate is now optional (removed from validation)
         // Note: FEIN is now optional (not in validation)
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // If the user checked "same as owner" keep property address in sync
+        if (PropertyAddressSameAsOwner && PropertyDamage?.OwnerAddress != null)
+        {
+            PropertyDamage.PropertyAddress.StreetAddress = PropertyDamage.OwnerAddress.StreetAddress;
+            PropertyDamage.PropertyAddress.AddressLine2 = PropertyDamage.OwnerAddress.AddressLine2;
+            PropertyDamage.PropertyAddress.City = PropertyDamage.OwnerAddress.City;
+            PropertyDamage.PropertyAddress.State = PropertyDamage.OwnerAddress.State;
+            PropertyDamage.PropertyAddress.ZipCode = PropertyDamage.OwnerAddress.ZipCode;
+        }
     }
 
     private async Task OnSave()
