@@ -152,14 +152,14 @@ app.MapGet("/api/letters/form/load/{claimNumber}/{documentNumber}", async (strin
     return Results.NotFound("Form load has been disabled.");
 });
 
-app.MapPost("/api/letters/form/flatten", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, ClaimsPortal.Services.LetterService letterService, ClaimsPortal.Services.ITextPdfFormService iTextService, IWebHostEnvironment env) =>
+app.MapPost("/api/letters/form/flatten", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, IWebHostEnvironment env) =>
 {
     // Editing/flattening disabled
     return Results.NotFound("Editing and PDF flattening functionality has been disabled.");
 });
 
 // Preview: render current placeholders to a temporary PDF for in-browser preview
-app.MapPost("/api/letters/form/preview", async (HttpRequest req, ClaimsPortal.Services.LetterService letterService, IWebHostEnvironment env) =>
+app.MapPost("/api/letters/form/preview", async (HttpRequest req, IWebHostEnvironment env) =>
 {
     // Preview generation disabled
     return Results.NotFound("Preview functionality has been disabled.");
@@ -183,7 +183,7 @@ app.MapPost("/api/letters/form/saveHtml", async (HttpRequest req, IWebHostEnviro
 });
 
 // Upload filled PDF: extract AcroForm values and persist them to LetterGen_FormData
-app.MapPost("/api/letters/form/upload", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, ClaimsPortal.Services.ITextPdfFormService iTextService, IWebHostEnvironment env) =>
+app.MapPost("/api/letters/form/upload", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, IWebHostEnvironment env) =>
 {
     // Upload/extract functionality disabled
     return Results.NotFound("Upload and field extraction has been disabled.");
