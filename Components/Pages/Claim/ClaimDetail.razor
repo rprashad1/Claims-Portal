@@ -59,11 +59,11 @@
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Date of Loss</small>
-                            <strong>@Claim.LossDetails.DateOfLoss.ToString("MM/dd/yyyy")</strong>
+                            <strong>@(Claim!.LossDetails?.DateOfLoss.ToString("MM/dd/yyyy") ?? "")</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Date Reported</small>
-                            <strong>@Claim.LossDetails.ReportDate.ToString("MM/dd/yyyy")</strong>
+                            <strong>@(Claim!.LossDetails?.ReportDate.ToString("MM/dd/yyyy") ?? "")</strong>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted d-block">Policy Number</small>
@@ -233,7 +233,7 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Date of Loss</small>
-                                    <strong>@Claim.LossDetails.DateOfLoss.ToString("MM/dd/yyyy")</strong>
+                                    <strong>@(Claim!.LossDetails?.DateOfLoss.ToString("MM/dd/yyyy") ?? "")</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Time of Loss</small>
@@ -241,7 +241,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Date</small>
-                                    <strong>@Claim.LossDetails.ReportDate.ToString("MM/dd/yyyy")</strong>
+                                    <strong>@(Claim!.LossDetails?.ReportDate.ToString("MM/dd/yyyy") ?? "")</strong>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted d-block">Report Time</small>

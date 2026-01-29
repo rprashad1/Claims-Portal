@@ -32,11 +32,11 @@
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Policy Number</small>
-                            <strong>@CurrentClaim.PolicyInfo.PolicyNumber</strong>
+                            <strong>@(CurrentClaim.PolicyInfo?.PolicyNumber ?? "")</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Insured</small>
-                            <strong>@CurrentClaim.PolicyInfo.InsuredName</strong>
+                            <strong>@(CurrentClaim.PolicyInfo?.InsuredName ?? "")</strong>
                         </div>
                         <div class="col-md-3">
                             <small class="text-muted d-block">Claim Status</small>

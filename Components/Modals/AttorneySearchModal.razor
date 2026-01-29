@@ -211,7 +211,7 @@
 
     private async Task SelectAttorney(VendorSearchResult vendor)
     {
-        Console.WriteLine($"[AttorneySearchModal] SelectAttorney invoked for vendor {vendor?.EntityId}");
+        Console.WriteLine($"[AttorneySearchModal] SelectAttorney invoked for vendor {vendor.EntityId}");
         // Convert to AttorneyInfo
         var attorneyInfo = new AttorneyInfo
         {

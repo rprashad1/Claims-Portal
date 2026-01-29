@@ -125,7 +125,7 @@
                                             <td><strong>@claim.ClaimNumber</strong></td>
                                             <td>@claim.PolicyNumber</td>
                                             <td>@claim.InsuredParty.Name</td>
-                                            <td>@claim.LossDetails.DateOfLoss.ToString("MM/dd/yyyy")</td>
+                                            <td>@(claim.LossDetails?.DateOfLoss.ToString("MM/dd/yyyy") ?? "")</td>
                                             <td>
                                                 <span class="badge @GetStatusBadge(claim.Status)">@claim.Status</span>
                                             </td>
