@@ -1586,7 +1586,7 @@ namespace ClaimsPortal.Services
                 _logger?.LogDebug("[DEBUG-AUTO-GEN] User selected {SelectedCount} rule ids: {SelectedIds}", selected.Count, string.Join(',', selected.Take(10)));
             }
 
-            _logger?.LogDebug("[DEBUG-AUTO-GEN] Loaded {RuleCount} candidate rules", rules?.Count() ?? 0);
+            _logger?.LogDebug("[DEBUG-AUTO-GEN] Loaded {RuleCount} candidate rules", rules.Count());
 
             var hasAttorney = (claim.DriverAttorney != null)
                              || claim.Passengers.Any(p => p.HasAttorney)
@@ -1594,10 +1594,10 @@ namespace ClaimsPortal.Services
 
             foreach (var sub in claim.SubClaims)
             {
-                _logger?.LogDebug("[DEBUG-AUTO-GEN] Processing SubClaim Feature={Feature} Coverage={Coverage} ClaimType={ClaimType} ClaimantName={ClaimantName}", sub?.FeatureNumber, sub?.Coverage, sub?.ClaimType, sub?.ClaimantName);
+                _logger?.LogDebug("[DEBUG-AUTO-GEN] Processing SubClaim Feature={Feature} Coverage={Coverage} ClaimType={ClaimType} ClaimantName={ClaimantName}", sub.FeatureNumber, sub.Coverage, sub.ClaimType, sub.ClaimantName);
                 foreach (var rule in rules)
                 {
-                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Evaluating Rule Id={RuleId} Name={DocName} Coverage={Coverage} Claimant={Claimant} HasAttorney={HasAttorney}", rule?.Id, rule?.DocumentName, rule?.Coverage, rule?.Claimant, rule?.HasAttorney);
+                    _logger?.LogDebug("[DEBUG-AUTO-GEN] Evaluating Rule Id={RuleId} Name={DocName} Coverage={Coverage} Claimant={Claimant} HasAttorney={HasAttorney}", rule.Id, rule.DocumentName, rule.Coverage, rule.Claimant, rule.HasAttorney);
                     if (!string.Equals(rule.Coverage, sub.Coverage, StringComparison.OrdinalIgnoreCase))
                         continue;
 
