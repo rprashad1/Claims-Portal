@@ -52,6 +52,9 @@ builder.Services.AddSingleton<LetterConfigStore>();
 // Register HttpClientFactory for components that need to make HTTP calls
 builder.Services.AddHttpClient();
 
+// Register letter service (used for generating PDFs and rendering templates)
+builder.Services.AddScoped<LetterService>();
+
 // Letter generation services removed: PDF generation and inline editing disabled per request
 // (LetterService, PdfFormService, ITextPdfFormService, LetterGenerationWorker unregistered)
 
