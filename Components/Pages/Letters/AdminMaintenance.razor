@@ -205,7 +205,7 @@
 
         try
         {
-            await LetterService.GeneratePdfFromTemplateAsync(SelectedRule.TemplateFile, placeholders, outPath);
+            await LetterService.GeneratePdfFromTemplateAsync(SelectedRule.TemplateFile!, placeholders, outPath);
             StatusMessage = $"PDF generated: {outPath}";
             // ensure a copy in GeneratedLetters for UI visibility and browser access
             var copyTo = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters", Path.GetFileName(outPath));

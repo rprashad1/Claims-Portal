@@ -1346,7 +1346,7 @@
 
         try
         {
-            await LetterService.GeneratePdfFromTemplateAsync(templateFile, placeholders, outPath);
+            await LetterService.GeneratePdfFromTemplateAsync(templateFile!, placeholders, outPath);
             // copy to generated folder and open
             var generatedDir = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedLetters");
             Directory.CreateDirectory(generatedDir);
