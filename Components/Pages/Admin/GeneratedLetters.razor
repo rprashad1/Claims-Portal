@@ -1,0 +1,62 @@
+@page "/admin/generated-letters"
+@rendermode InteractiveServer
+@inject HttpClient Http
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2>Generated Letters</h2>
+            <p class="text-muted">Browse generated documents</p>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="Load">Refresh</button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            @if (Files == null)
+            {
+                <div>Loading…</div>
+            }
+            else if (Files.Count == 0)
+            {
+                <div class="text-muted">No generated letters found.</div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var f in Files)
+                    {
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="@f.Url" target="_blank">
+                            <div>
+                                <strong>@f.Name</strong>
+                                <div class="text-muted small">@((new System.DateTimeOffset(f.Modified)).ToLocalTime().ToString())</div>
+                            </div>
+                            <div class="text-muted small">@String.Format("{0:N0} bytes", f.Size)</div>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    List<GeneratedFile>? Files;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    async Task Load()
+    {
+        try
+        {
+            Files = await Http.GetFromJsonAsync<List<GeneratedFile>>("/api/generated");
+        }
+        catch { Files = new List<GeneratedFile>(); }
+        StateHasChanged();
+    }
+
+    class GeneratedFile { public string Name { get; set; } = string.Empty; public string Url { get; set; } = string.Empty; public long Size { get; set; } public System.DateTime Modified { get; set; } }
+}

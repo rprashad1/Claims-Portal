@@ -183,6 +183,33 @@ app.MapPost("/api/letterqueue/{id:int}/requeue", async (int id, ClaimsPortalDbCo
     return Results.Ok();
 });
 
+// List generated letters (files in GeneratedLetters folder)
+app.MapGet("/api/generated", (IWebHostEnvironment env) =>
+{
+    try
+    {
+        var dir = Path.Combine(env.ContentRootPath, "GeneratedLetters");
+        if (!Directory.Exists(dir)) return Results.Ok(Array.Empty<object>());
+
+        var files = Directory.GetFiles(dir)
+            .Select(f => new {
+                Name = Path.GetFileName(f),
+                Url = "/generated/" + System.Net.WebUtility.UrlEncode(Path.GetFileName(f)),
+                Size = new FileInfo(f).Length,
+                Modified = File.GetLastWriteTimeUtc(f)
+            })
+            .OrderByDescending(f => f.Modified)
+            .ToList();
+
+        return Results.Ok(files);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Failed to list generated letters");
+        return Results.StatusCode(500);
+    }
+});
+
 // --- Letter form endpoints: extract fields, save/load form-data, flatten to final PDF ---
 
 app.MapPost("/api/letters/fields", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, IWebHostEnvironment env) =>
