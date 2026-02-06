@@ -34,6 +34,10 @@ namespace ClaimsPortal.Data
         public DbSet<LetterGenGeneratedDocument> LetterGenGeneratedDocuments { get; set; }
         public DbSet<LetterGenQueue> LetterGenQueue { get; set; }
         public DbSet<LetterGenFormData> LetterGenFormData { get; set; }
+        // User access module
+        public DbSet<ClaimsPortal.Models.User> Users { get; set; }
+        public DbSet<ClaimsPortal.Models.Role> UserRoles { get; set; }
+        public DbSet<ClaimsPortal.Models.AssignmentGroup> AssignmentGroups { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -64,6 +68,11 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<LetterGenQueue>().ToTable("LetterGen_Queue");
                 modelBuilder.Entity<LetterGenFormData>().ToTable("LetterGen_FormData");
 
+                // User access module table mappings
+                modelBuilder.Entity<ClaimsPortal.Models.User>().ToTable("Users");
+                modelBuilder.Entity<ClaimsPortal.Models.Role>().ToTable("UserRoles");
+                modelBuilder.Entity<ClaimsPortal.Models.AssignmentGroup>().ToTable("AssignmentGroups");
+
             // Configure key mappings
             modelBuilder.Entity<LookupCode>().HasKey(l => l.LookupCodeId);
             modelBuilder.Entity<Policy>().HasKey(p => p.PolicyId);
@@ -88,6 +97,11 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<LetterGenGeneratedDocument>().HasKey(d => d.Id);
             modelBuilder.Entity<LetterGenQueue>().HasKey(q => q.QueueId);
             modelBuilder.Entity<LetterGenFormData>().HasKey(f => f.Id);
+
+            // Keys for user access module
+            modelBuilder.Entity<ClaimsPortal.Models.User>().HasKey(u => u.UserId);
+            modelBuilder.Entity<ClaimsPortal.Models.Role>().HasKey(r => r.RoleId);
+            modelBuilder.Entity<ClaimsPortal.Models.AssignmentGroup>().HasKey(g => g.GroupId);
 
             // Configure relationships
             // NOTE: FNOL -> Policy relationship removed because Policy comes from external system
@@ -165,6 +179,35 @@ namespace ClaimsPortal.Data
             modelBuilder.Entity<FnolPropertyDamage>()
                 .Property(p => p.EstimatedDamage)
                 .HasPrecision(18, 2);
+
+            // Configure User relationships and precision for money fields
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .HasOne<ClaimsPortal.Models.AssignmentGroup>(u => u.AssignmentGroup)
+                .WithMany()
+                .HasForeignKey(u => u.AssignmentGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .HasOne<ClaimsPortal.Models.Role>(u => u.Role)
+                .WithMany()
+                .HasForeignKey(u => u.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .Property(u => u.ExpenseReserve)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .Property(u => u.IndemnityReserve)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .Property(u => u.ExpensePayment)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<ClaimsPortal.Models.User>()
+                .Property(u => u.IndemnityPayment)
+                .HasPrecision(18, 2);
         }
     }
 
@@ -220,6 +263,8 @@ namespace ClaimsPortal.Data
         public string ContentType { get; set; } = "application/pdf";
         public long? FileSize { get; set; }
         public string? Sha256Hash { get; set; }
+        // GenerationType: 'auto' = background automated generation, 'manual' = user-triggered/manual/edit
+        public string? GenerationType { get; set; }
         public string? MailTo { get; set; }
         public string? MailStatus { get; set; }
         public DateTimeOffset? SentAt { get; set; }

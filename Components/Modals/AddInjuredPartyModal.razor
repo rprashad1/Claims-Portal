@@ -161,6 +161,7 @@
     {
         NewParty ??= new ThirdParty();
         NewParty.Address ??= new Address();
+        NewParty.Driver ??= new DriverInfo { Address = new Address() };
         NewParty.InjuryInfo ??= new Injury();
         NewParty.AttorneyInfo ??= new AttorneyInfo { Address = new Address() };
     }

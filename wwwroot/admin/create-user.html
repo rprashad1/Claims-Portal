@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Admin - Create User</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 16px; }
+    label { display:block; margin-top:8px; }
+    input, select { width: 350px; padding:6px; }
+    .small { width:120px }
+  </style>
+</head>
+<body>
+  <h2>Admin: Create User</h2>
+  <form id="createForm">
+    <label>Username: <input id="username" required /></label>
+    <label>Password: <input id="password" type="password" required /></label>
+    <label>Full name: <input id="fullname" /></label>
+    <label>Email: <input id="email" type="email" /></label>
+    <label>Telephone: <input id="telephone" /></label>
+    <label>Extension: <input id="extension" class="small"/></label>
+    <label>Status: <select id="status"><option>Active</option><option>Disabled</option></select></label>
+    <label>Start date: <input id="startdate" type="date" /></label>
+    <label>End date: <input id="enddate" type="date" /></label>
+    <label>Assignment group: <select id="group"></select></label>
+    <label>Role: <select id="role"></select></label>
+    <label>Supervisor user id: <input id="supervisor" class="small"/></label>
+    <label>Expense reserve: <input id="expenseReserve" class="small" type="number" step="0.01"/></label>
+    <label>Indemnity reserve: <input id="indemnityReserve" class="small" type="number" step="0.01"/></label>
+    <label>Expense payment: <input id="expensePayment" class="small" type="number" step="0.01"/></label>
+    <label>Indemnity payment: <input id="indemnityPayment" class="small" type="number" step="0.01"/></label>
+    <div style="margin-top:12px">
+      <button type="submit">Create User</button>
+      <span id="result" style="margin-left:12px"></span>
+    </div>
+  </form>
+
+  <script src="/admin/create-user.js"></script>
+</body>
+</html>

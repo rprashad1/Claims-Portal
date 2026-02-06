@@ -3,6 +3,9 @@ using ClaimsPortal.Services;
 using Microsoft.EntityFrameworkCore;
 using ClaimsPortal.Data;
 using System.IO;
+using ClaimsPortal.Models;
+using ClaimsPortal.Models.Dto;
+using ClaimsPortal.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -214,20 +217,227 @@ app.MapPost("/api/letters/form/preview", async (HttpRequest req, IWebHostEnviron
 });
 
 // Render template output as HTML (substitute placeholders) for in-browser editing
-app.MapPost("/api/letters/form/render", async (HttpRequest req, IWebHostEnvironment env) =>
+app.MapPost("/api/letters/form/render", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, IWebHostEnvironment env) =>
 {
-    // Rendering for inline edit disabled
-    return Results.NotFound("Rendering for inline edit has been disabled.");
+    try
+    {
+        using var doc = await System.Text.Json.JsonDocument.ParseAsync(req.Body);
+        var root = doc.RootElement;
+        var templateName = root.TryGetProperty("templateName", out var t) ? t.GetString() ?? string.Empty : (root.TryGetProperty("TemplateName", out var t2) ? t2.GetString() ?? string.Empty : string.Empty);
+
+        // Load template file
+        var templatesDir = Path.Combine(env.ContentRootPath, "wwwroot", "templates");
+        var templatePath = Path.Combine(templatesDir, templateName ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(templateName) || !System.IO.File.Exists(templatePath))
+        {
+            return Results.BadRequest("Template not found");
+        }
+
+        var html = await System.IO.File.ReadAllTextAsync(templatePath, System.Text.Encoding.GetEncoding(1252));
+
+        // Build placeholder dictionary: support explicit 'fields' object or fall back to small set from claimNumber
+        var placeholders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (root.TryGetProperty("fields", out var fieldsEl) && fieldsEl.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            foreach (var p in fieldsEl.EnumerateObject())
+            {
+                placeholders[p.Name] = p.Value.GetString() ?? string.Empty;
+            }
+        }
+        else if (root.TryGetProperty("claimNumber", out var claimEl))
+        {
+            var claimNumber = claimEl.GetString() ?? string.Empty;
+            placeholders["ClaimNumber"] = claimNumber;
+            // No DB lookup here - keep placeholder population minimal to avoid coupling to specific DbSet names.
+        }
+
+        // perform simple replacements (support formats used in templates)
+        foreach (var kv in placeholders)
+        {
+            var val = kv.Value ?? string.Empty;
+            html = html.Replace("{{" + kv.Key + "}}", val);
+            html = html.Replace("{{ " + kv.Key + " }}", val);
+            html = html.Replace("{" + kv.Key + "}", val);
+            html = html.Replace("{ " + kv.Key + " }", val);
+        }
+
+        return Results.Content(html, "text/html");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Render endpoint error");
+        return Results.StatusCode(500);
+    }
 });
 
 // GET helper for render removed: serving template HTML for inline edit disabled
 app.MapGet("/api/letters/form/render/{*templateName}", () => Results.NotFound("GET render route disabled."));
 
 // Save edited HTML for a claim/document (used as source for final flatten)
-app.MapPost("/api/letters/form/saveHtml", async (HttpRequest req, IWebHostEnvironment env) =>
+app.MapPost("/api/letters/form/saveHtml", async (HttpRequest req, ClaimsPortal.Data.ClaimsPortalDbContext db, IWebHostEnvironment env) =>
 {
-    // Saving edited HTML disabled
-    return Results.NotFound("Saving edited HTML has been disabled.");
+    try
+    {
+        using var reader = new StreamReader(req.Body);
+        var bodyStr = await reader.ReadToEndAsync();
+        app.Logger.LogInformation("saveHtml called. body length={len}", bodyStr?.Length ?? 0);
+        using var doc = System.Text.Json.JsonDocument.Parse(bodyStr ?? "{}");
+        var root = doc.RootElement;
+        var claimNumber = root.TryGetProperty("claimNumber", out var c) ? c.GetString() ?? string.Empty : string.Empty;
+        var documentNumber = root.TryGetProperty("documentNumber", out var d) ? d.GetString() ?? string.Empty : string.Empty;
+        var templateName = root.TryGetProperty("templateName", out var t) ? t.GetString() ?? string.Empty : string.Empty;
+        var html = root.TryGetProperty("html", out var h) ? h.GetString() ?? string.Empty : string.Empty;
+        var ruleIdStr = root.TryGetProperty("ruleId", out var r) ? r.GetString() ?? string.Empty : string.Empty;
+
+        // Find rule if provided
+        long? ruleId = null;
+        ClaimsPortal.Data.LetterGenAdminRule? rule = null;
+        try
+        {
+            if (!string.IsNullOrEmpty(ruleIdStr) && long.TryParse(ruleIdStr, out var rid))
+            {
+                ruleId = rid;
+                rule = await db.LetterGenAdminRules.FirstOrDefaultAsync(x => x.Id == rid);
+            }
+            else if (!string.IsNullOrEmpty(templateName))
+            {
+                rule = await db.LetterGenAdminRules.FirstOrDefaultAsync(x => x.TemplateFile == templateName || (x.DocumentName != null && (x.DocumentName + ".html") == templateName));
+                if (rule != null) ruleId = rule.Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Failed to lookup rule for saveHtml (ruleIdStr={ruleIdStr}, template={templateName})", ruleIdStr, templateName);
+        }
+
+        app.Logger.LogInformation("saveHtml payload: claim={claim}, document={docNum}, template={template}, ruleId={ruleId}, htmlLength={htmlLen}", claimNumber, documentNumber, templateName, ruleId, html?.Length ?? 0);
+
+        var outDir = Path.Combine(env.ContentRootPath, "GeneratedLetters");
+        if (rule != null && !string.IsNullOrWhiteSpace(rule.Location))
+        {
+            try { outDir = rule.Location; System.IO.Directory.CreateDirectory(outDir); } catch { outDir = Path.Combine(env.ContentRootPath, "GeneratedLetters"); }
+        }
+        else
+        {
+            System.IO.Directory.CreateDirectory(outDir);
+        }
+
+        var safeDocName = "ManualLetter";
+        if (rule != null && !string.IsNullOrWhiteSpace(rule.DocumentName))
+            safeDocName = string.Join("_", rule.DocumentName.Split(System.IO.Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Replace(' ', '_');
+        else if (!string.IsNullOrWhiteSpace(templateName))
+            safeDocName = System.IO.Path.GetFileNameWithoutExtension(templateName);
+
+        // derive feature number from documentNumber if present (expecting format Claim_feature)
+        var featureSuffix = "";
+        int featureNumber = 0;
+        if (!string.IsNullOrEmpty(documentNumber) && documentNumber.Contains("_"))
+        {
+            var parts = documentNumber.Split('_');
+            if (int.TryParse(parts.Last(), out var fn))
+            {
+                featureNumber = fn;
+                featureSuffix = $"_F{fn}";
+            }
+        }
+
+        var filename = $"{safeDocName}_{claimNumber}{featureSuffix}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
+        var outPath = Path.Combine(outDir, filename);
+
+        // Generate PDF from HTML
+        var letterService = req.HttpContext.RequestServices.GetRequiredService<ClaimsPortal.Services.LetterService>();
+        try
+        {
+            app.Logger.LogInformation("Generating PDF to {outPath}", outPath);
+            await letterService.GeneratePdfFromHtmlAsync(html ?? string.Empty, outPath);
+            app.Logger.LogInformation("PDF generation completed: {outPath}", outPath);
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "PDF generation failed for claim={claim}, outPath={outPath}", claimNumber, outPath);
+            return Results.Problem(detail: "PDF generation failed: " + ex.Message, statusCode: 500);
+        }
+
+        // Persist metadata
+        try
+        {
+            var fi = new System.IO.FileInfo(outPath);
+            // compute sha256
+            string? shaHex = null;
+            try
+            {
+                using var stream = System.IO.File.OpenRead(outPath);
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                var hash = sha256.ComputeHash(stream);
+                shaHex = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+            }
+            catch (Exception ex2)
+            {
+                app.Logger.LogWarning(ex2, "Failed to compute sha256 for file {outPath}", outPath);
+            }
+
+            // try to resolve SubClaimId by ClaimNumber + feature number if available
+            long? resolvedSubClaimId = null;
+            try
+            {
+                if (featureNumber > 0)
+                {
+                    var sub = await db.SubClaims.FirstOrDefaultAsync(s => s.ClaimNumber == claimNumber && s.FeatureNumber == featureNumber);
+                    if (sub != null) resolvedSubClaimId = sub.SubClaimId;
+                }
+            }
+            catch (Exception ex3)
+            {
+                app.Logger.LogWarning(ex3, "Failed to lookup SubClaim for claim={claim} feature={feature}", claimNumber, featureNumber);
+            }
+
+            var docRec = new ClaimsPortal.Data.LetterGenGeneratedDocument
+            {
+                Id = Guid.NewGuid(),
+                RuleId = ruleId,
+                ClaimNumber = claimNumber,
+                SubClaimId = resolvedSubClaimId,
+                SubClaimFeatureNumber = featureNumber == 0 ? null : (int?)featureNumber,
+                DocumentNumber = documentNumber,
+                FileName = filename,
+                StorageProvider = "filesystem",
+                StoragePath = outPath,
+                Content = null,
+                ContentType = "application/pdf",
+                FileSize = fi.Exists ? fi.Length : (long?)null,
+                Sha256Hash = shaHex,
+                MailTo = rule?.MailTo,
+                CreatedBy = null,
+                CreatedAt = DateTimeOffset.UtcNow,
+                GenerationType = "manual"
+            };
+            db.LetterGenGeneratedDocuments.Add(docRec);
+            await db.SaveChangesAsync();
+            app.Logger.LogInformation("Saved LetterGenGeneratedDocument id={id} file={file}", docRec.Id, docRec.StoragePath);
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Failed to save letter metadata for claim={claim}, file={file}", claimNumber, outPath);
+        }
+
+        // copy to generated folder served by UI
+        try
+        {
+            var generatedDir = Path.Combine(env.ContentRootPath, "GeneratedLetters");
+            System.IO.Directory.CreateDirectory(generatedDir);
+            var copyTo = Path.Combine(generatedDir, filename);
+            try { System.IO.File.Copy(outPath, copyTo, overwrite: true); } catch { }
+        }
+        catch { }
+
+        var webUrl = $"/generated/{Uri.EscapeDataString(filename)}";
+        return Results.Json(new Dictionary<string, string> { ["url"] = webUrl });
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "saveHtml error");
+        return Results.StatusCode(500);
+    }
 });
 
 // Upload filled PDF: extract AcroForm values and persist them to LetterGen_FormData
@@ -235,6 +445,158 @@ app.MapPost("/api/letters/form/upload", async (HttpRequest req, ClaimsPortal.Dat
 {
     // Upload/extract functionality disabled
     return Results.NotFound("Upload and field extraction has been disabled.");
+});
+
+// --- Admin: User management endpoints (create user, list roles/groups) ---
+app.MapGet("/api/admin/roles", async (ClaimsPortalDbContext db) =>
+{
+    var roles = await db.UserRoles
+        .Select(r => new { r.RoleId, r.RoleName, r.Description })
+        .ToListAsync();
+    return Results.Ok(roles);
+});
+
+app.MapGet("/api/admin/groups", async (ClaimsPortalDbContext db) =>
+{
+    var groups = await db.AssignmentGroups
+        .Select(g => new { g.GroupId, g.GroupCode, g.GroupName, g.Description })
+        .ToListAsync();
+    return Results.Ok(groups);
+});
+
+app.MapPost("/api/admin/users", async (ClaimsPortal.Models.Dto.CreateUserDto dto, ClaimsPortalDbContext db) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
+        return Results.BadRequest("Username and password are required.");
+
+    // check uniqueness
+    var exists = await db.Users.AnyAsync(u => u.Username == dto.Username);
+    if (exists) return Results.Conflict("Username already exists");
+
+    var hash = PasswordHasher.Hash(dto.Password);
+
+    var user = new ClaimsPortal.Models.User
+    {
+        Username = dto.Username,
+        PasswordHash = hash,
+        FullName = dto.FullName,
+        Email = dto.Email,
+        Telephone = dto.Telephone,
+        Extension = dto.Extension,
+        Status = dto.Status ?? "Active",
+        StartDate = dto.StartDate,
+        EndDate = dto.EndDate,
+        AssignmentGroupId = dto.AssignmentGroupId,
+        RoleId = dto.RoleId,
+        SupervisorUserId = dto.SupervisorUserId,
+        ExpenseReserve = dto.ExpenseReserve,
+        IndemnityReserve = dto.IndemnityReserve,
+        ExpensePayment = dto.ExpensePayment,
+        IndemnityPayment = dto.IndemnityPayment,
+        CreatedBy = dto.CreatedBy,
+        CreatedOn = DateTime.UtcNow
+    };
+
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/admin/users/{user.UserId}", new { user.UserId, user.Username });
+});
+
+// List users with optional search/status
+app.MapGet("/api/admin/users", async (string? search, string? status, ClaimsPortalDbContext db) =>
+{
+    var q = db.Users.AsQueryable();
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        q = q.Where(u => u.Username.Contains(search) || (u.FullName != null && u.FullName.Contains(search)) || (u.Email != null && u.Email.Contains(search)));
+    }
+    if (!string.IsNullOrWhiteSpace(status))
+    {
+        q = q.Where(u => u.Status == status);
+    }
+
+    var list = await q.OrderBy(u => u.Username)
+        .Select(u => new {
+            u.UserId,
+            u.Username,
+            u.FullName,
+            u.Email,
+            u.Telephone,
+            u.Extension,
+            u.Status,
+            u.StartDate,
+            u.EndDate,
+            AssignmentGroup = u.AssignmentGroup != null ? new { u.AssignmentGroup.GroupId, u.AssignmentGroup.GroupName } : null,
+            Role = u.Role != null ? new { u.Role.RoleId, u.Role.RoleName } : null,
+            u.SupervisorUserId,
+            u.ExpenseReserve,
+            u.IndemnityReserve,
+            u.ExpensePayment,
+            u.IndemnityPayment
+        }).ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// Get single user
+app.MapGet("/api/admin/users/{id:long}", async (long id, ClaimsPortalDbContext db) =>
+{
+    var u = await db.Users
+        .Include(x => x.AssignmentGroup)
+        .Include(x => x.Role)
+        .FirstOrDefaultAsync(x => x.UserId == id);
+    if (u == null) return Results.NotFound();
+
+    return Results.Ok(new {
+        u.UserId,
+        u.Username,
+        u.FullName,
+        u.Email,
+        u.Telephone,
+        u.Extension,
+        u.Status,
+        u.StartDate,
+        u.EndDate,
+        AssignmentGroup = u.AssignmentGroup != null ? new { u.AssignmentGroup.GroupId, u.AssignmentGroup.GroupName } : null,
+        Role = u.Role != null ? new { u.Role.RoleId, u.Role.RoleName } : null,
+        u.SupervisorUserId,
+        u.ExpenseReserve,
+        u.IndemnityReserve,
+        u.ExpensePayment,
+        u.IndemnityPayment,
+        u.CreatedBy,
+        u.CreatedOn
+    });
+});
+
+// Update user
+app.MapPut("/api/admin/users/{id:long}", async (long id, ClaimsPortal.Models.Dto.UpdateUserDto dto, ClaimsPortalDbContext db) =>
+{
+    var u = await db.Users.FirstOrDefaultAsync(x => x.UserId == id);
+    if (u == null) return Results.NotFound();
+
+    if (!string.IsNullOrWhiteSpace(dto.Password))
+    {
+        u.PasswordHash = PasswordHasher.Hash(dto.Password);
+    }
+    if (dto.FullName != null) u.FullName = dto.FullName;
+    if (dto.Email != null) u.Email = dto.Email;
+    if (dto.Telephone != null) u.Telephone = dto.Telephone;
+    if (dto.Extension != null) u.Extension = dto.Extension;
+    if (dto.Status != null) u.Status = dto.Status;
+    if (dto.StartDate.HasValue) u.StartDate = dto.StartDate.Value;
+    if (dto.EndDate.HasValue) u.EndDate = dto.EndDate;
+    if (dto.AssignmentGroupId.HasValue) u.AssignmentGroupId = dto.AssignmentGroupId;
+    if (dto.RoleId.HasValue) u.RoleId = dto.RoleId;
+    if (dto.SupervisorUserId.HasValue) u.SupervisorUserId = dto.SupervisorUserId;
+    if (dto.ExpenseReserve.HasValue) u.ExpenseReserve = dto.ExpenseReserve;
+    if (dto.IndemnityReserve.HasValue) u.IndemnityReserve = dto.IndemnityReserve;
+    if (dto.ExpensePayment.HasValue) u.ExpensePayment = dto.ExpensePayment;
+    if (dto.IndemnityPayment.HasValue) u.IndemnityPayment = dto.IndemnityPayment;
+
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 app.Run();

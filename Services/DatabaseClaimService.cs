@@ -1802,6 +1802,7 @@ namespace ClaimsPortal.Services
                                 ContentType = "application/pdf",
                                 FileSize = fi.Exists ? fi.Length : (long?)null,
                                 Sha256Hash = sha != null ? BitConverter.ToString(sha).Replace("-", string.Empty).ToLowerInvariant() : null,
+                                GenerationType = "auto",
                                 MailTo = rule?.MailTo,
                                 MailStatus = null,
                                 CreatedBy = claim.CreatedBy ?? "system",

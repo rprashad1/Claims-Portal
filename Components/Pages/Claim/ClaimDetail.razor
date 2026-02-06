@@ -205,7 +205,7 @@
 
                                     <div class="d-flex gap-2">
                                         <button class="btn btn-primary" @onclick="GenerateForSubClaim" disabled="@(string.IsNullOrWhiteSpace(SelectedSubClaimId) || string.IsNullOrWhiteSpace(SelectedRuleId))">Generate</button>
-                                        <button class="btn btn-outline-secondary" @onclick="OpenEditor" disabled="@(string.IsNullOrWhiteSpace(SelectedRuleId) || string.IsNullOrWhiteSpace(SelectedSubClaimId))">Edit Letter</button>
+                                        <button class="btn btn-outline-secondary" @onclick="OpenEditor" disabled="@(string.IsNullOrWhiteSpace(SelectedRuleId) || string.IsNullOrWhiteSpace(SelectedSubClaimId))">Load Template</button>
                                         <button class="btn btn-secondary" @onclick="RefreshClaimLetters">Refresh</button>
                                     </div>
 
@@ -1357,6 +1357,17 @@
             try
             {
                 var fi = new FileInfo(outPath);
+                // compute sha256 for the saved PDF
+                string? shaHex = null;
+                try
+                {
+                    using var stream = File.OpenRead(outPath);
+                    using var sha256 = System.Security.Cryptography.SHA256.Create();
+                    var hash = sha256.ComputeHash(stream);
+                    shaHex = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+                }
+                catch { shaHex = null; }
+
                 var doc = new LetterGenGeneratedDocument
                 {
                     Id = Guid.NewGuid(),
@@ -1371,6 +1382,8 @@
                     Content = null,
                     ContentType = "application/pdf",
                     FileSize = fi.Exists ? fi.Length : (long?)null,
+                    Sha256Hash = shaHex,
+                    GenerationType = "manual",
                     MailTo = rule?.MailTo,
                     CreatedBy = null,
                     CreatedAt = DateTimeOffset.UtcNow
@@ -1413,7 +1426,7 @@
             }
             if (string.IsNullOrWhiteSpace(templateFile)) return;
 
-            var url = $"/letters/edit/{Uri.EscapeDataString(Claim.ClaimNumber)}/{Uri.EscapeDataString(Claim.ClaimNumber)}_{sub.FeatureNumber}/{Uri.EscapeDataString(templateFile)}";
+            var url = $"/letters/edit/{Uri.EscapeDataString(Claim.ClaimNumber)}/{Uri.EscapeDataString(Claim.ClaimNumber)}_{sub.FeatureNumber}/{Uri.EscapeDataString(templateFile)}?ruleId={Uri.EscapeDataString(rule.Id.ToString())}";
             JS.InvokeVoidAsync("open", url, "_blank");
         }
         catch { }

@@ -1,0 +1,361 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@using ClaimsPortal.Models
+@using ClaimsPortal.Models.Dto
+@using System.Text.Json
+@inject HttpClient Http
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2>Users</h2>
+            <p class="text-muted">Manage application users</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowAdd"> <i class="bi bi-plus-circle"></i> Add User</button>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input class="form-control" placeholder="Search by username, name, or email" @bind="SearchTerm" @bind:event="oninput" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" @bind="FilterStatus">
+                        <option value="">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex">
+                    <button class="btn btn-primary me-2" @onclick="LoadUsers">Search</button>
+                    <button class="btn btn-outline-secondary" @onclick="Clear">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">Users (@UserList.Count)</h6>
+        </div>
+        <div class="card-body">
+            @if (UserList.Count == 0)
+            {
+                <div class="text-center py-4 text-muted">No users found.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Group</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in UserList)
+                            {
+                                <tr>
+                                    <td><strong>@u.Username</strong></td>
+                                    <td>@u.FullName</td>
+                                    <td>@u.Email</td>
+                                    <td>@u.Telephone</td>
+                                    <td>@(u.AssignmentGroup?.GroupName ?? "-")</td>
+                                    <td>@(u.Role?.RoleName ?? "-")</td>
+                                    <td>@u.Status</td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" title="View" @onclick="(()=>View(u.UserId))"> <i class="bi bi-eye"></i></button>
+                                            <button class="btn btn-outline-primary" title="Edit" @onclick="(()=>Edit(u.UserId))"> <i class="bi bi-pencil"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (ShowModal)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@((EditingId == 0) ? "Add User" : "Edit User")</h5>
+                        <button class="btn-close" @onclick="CloseModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Username</label>
+                                <input class="form-control" @bind="EditModel.Username" disabled="@((EditingId!=0) || IsViewMode)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Full Name</label>
+                                <input class="form-control" @bind="EditModel.FullName" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input class="form-control" @bind="EditModel.Email" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Telephone</label>
+                                <input class="form-control" @bind="EditModel.Telephone" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Extension</label>
+                                <input class="form-control" @bind="EditModel.Extension" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" @bind="EditModel.RoleId" disabled="@IsViewMode">
+                                    <option value="">Select</option>
+                                    @foreach (var r in Roles) { <option value="@r.RoleId">@r.RoleName</option> }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Group</label>
+                                <select class="form-select" @bind="EditModel.AssignmentGroupId" disabled="@IsViewMode">
+                                    <option value="">Select</option>
+                                    @foreach (var g in Groups) { <option value="@g.GroupId">@g.GroupName</option> }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Supervisor</label>
+                                <select class="form-select" @bind="EditModel.SupervisorUserId" disabled="@IsViewMode">
+                                    <option value="">None</option>
+                                    @foreach (var s in UserList.Where(x => EditingId == 0 || x.UserId != EditingId))
+                                    {
+                                        <option value="@s.UserId">@s.Username @(" - ") @s.FullName</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" @bind="EditModel.Status" disabled="@IsViewMode">
+                                    <option value="Active">Active</option>
+                                    <option value="Disabled">Disabled</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control" @bind="EditModel.StartDate" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">End Date</label>
+                                <input type="date" class="form-control" @bind="EditModel.EndDate" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Expense Reserve</label>
+                                <input type="number" step="0.01" class="form-control" @bind="EditModel.ExpenseReserve" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Indemnity Reserve</label>
+                                <input type="number" step="0.01" class="form-control" @bind="EditModel.IndemnityReserve" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Expense Payment</label>
+                                <input type="number" step="0.01" class="form-control" @bind="EditModel.ExpensePayment" disabled="@IsViewMode" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Indemnity Payment</label>
+                                <input type="number" step="0.01" class="form-control" @bind="EditModel.IndemnityPayment" disabled="@IsViewMode" />
+                            </div>
+                            @if (!IsViewMode)
+                            {
+                                <div class="col-12">
+                                    <label class="form-label">Password @((EditingId==0)?"* (required)":"(leave blank to keep current)")</label>
+                                    <input type="password" class="form-control" @bind="EditModel.Password" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                        @if (!IsViewMode)
+                        {
+                            <button class="btn btn-primary" @onclick="SaveUser">Save</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    string SearchTerm = "";
+    string FilterStatus = "";
+    List<ClaimsPortal.Models.Dto.AdminUserListItem> UserList = new();
+
+    List<Role> Roles = new();
+    List<AssignmentGroup> Groups = new();
+
+    bool ShowModal = false;
+    bool IsViewMode = false;
+    long EditingId = 0;
+
+    CreateUserDto EditModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookups();
+        await LoadUsers();
+    }
+
+    async Task LoadLookups()
+    {
+        Roles = await Http.GetFromJsonAsync<List<Role>>("/api/admin/roles") ?? new();
+        Groups = await Http.GetFromJsonAsync<List<AssignmentGroup>>("/api/admin/groups") ?? new();
+    }
+
+    async Task LoadUsers()
+    {
+        var url = $"/api/admin/users?search={System.Net.WebUtility.UrlEncode(SearchTerm ?? string.Empty)}&status={System.Net.WebUtility.UrlEncode(FilterStatus ?? string.Empty)}";
+        UserList = await Http.GetFromJsonAsync<List<ClaimsPortal.Models.Dto.AdminUserListItem>>(url) ?? new();
+        StateHasChanged();
+    }
+
+    void Clear()
+    {
+        SearchTerm = "";
+        FilterStatus = "";
+        _ = LoadUsers();
+    }
+
+    void ShowAdd()
+    {
+        EditingId = 0;
+        IsViewMode = false;
+        EditModel = new CreateUserDto { Status = "Active", StartDate = DateTime.UtcNow };
+        ShowModal = true;
+    }
+
+    async Task Edit(long id)
+    {
+        EditingId = id;
+        IsViewMode = false;
+        var item = UserList.FirstOrDefault(x => x.UserId == id);
+            if (item != null)
+        {
+            EditModel = new CreateUserDto
+            {
+                Username = item.Username,
+                FullName = item.FullName,
+                Email = item.Email,
+                Telephone = item.Telephone,
+                Extension = item.Extension,
+                Status = item.Status,
+                StartDate = item.StartDate ?? DateTime.UtcNow,
+                EndDate = item.EndDate,
+                    AssignmentGroupId = item.AssignmentGroup?.GroupId,
+                    RoleId = item.Role?.RoleId,
+                    ExpenseReserve = item.ExpenseReserve,
+                    IndemnityReserve = item.IndemnityReserve,
+                    ExpensePayment = item.ExpensePayment,
+                    IndemnityPayment = item.IndemnityPayment,
+                    SupervisorUserId = item.SupervisorUserId
+            };
+        }
+
+        ShowModal = true;
+    }
+
+    async Task View(long id)
+    {
+        EditingId = id;
+        IsViewMode = true;
+        var item = UserList.FirstOrDefault(x => x.UserId == id);
+        if (item != null)
+        {
+            EditModel = new CreateUserDto
+            {
+                Username = item.Username,
+                FullName = item.FullName,
+                Email = item.Email,
+                Telephone = item.Telephone,
+                Extension = item.Extension,
+                Status = item.Status,
+                StartDate = item.StartDate ?? DateTime.UtcNow,
+                EndDate = item.EndDate,
+                AssignmentGroupId = item.AssignmentGroup?.GroupId,
+                RoleId = item.Role?.RoleId,
+                ExpenseReserve = item.ExpenseReserve,
+                IndemnityReserve = item.IndemnityReserve,
+                ExpensePayment = item.ExpensePayment,
+                IndemnityPayment = item.IndemnityPayment
+            };
+        }
+
+        ShowModal = true;
+    }
+
+    void CloseModal() { ShowModal = false; EditingId = 0; }
+
+    async Task SaveUser()
+    {
+        if (EditingId == 0)
+        {
+            var res = await Http.PostAsJsonAsync("/api/admin/users", EditModel);
+            if (res.IsSuccessStatusCode)
+            {
+                ShowModal = false;
+                await LoadUsers();
+            }
+            else
+            {
+                var txt = await res.Content.ReadAsStringAsync();
+                Console.WriteLine("Create failed: " + txt);
+            }
+        }
+        else
+        {
+            var upd = new UpdateUserDto
+            {
+                Password = EditModel.Password,
+                FullName = EditModel.FullName,
+                Email = EditModel.Email,
+                Telephone = EditModel.Telephone,
+                Extension = EditModel.Extension,
+                Status = EditModel.Status,
+                StartDate = EditModel.StartDate,
+                EndDate = EditModel.EndDate,
+                AssignmentGroupId = EditModel.AssignmentGroupId,
+                RoleId = EditModel.RoleId
+            };
+
+            // include reserve/payment fields
+            upd.ExpenseReserve = EditModel.ExpenseReserve;
+            upd.IndemnityReserve = EditModel.IndemnityReserve;
+            upd.ExpensePayment = EditModel.ExpensePayment;
+            upd.IndemnityPayment = EditModel.IndemnityPayment;
+            // include supervisor
+            upd.SupervisorUserId = EditModel.SupervisorUserId;
+
+            var res = await Http.PutAsJsonAsync($"/api/admin/users/{EditingId}", upd);
+            if (res.IsSuccessStatusCode)
+            {
+                ShowModal = false;
+                await LoadUsers();
+            }
+            else
+            {
+                var txt = await res.Content.ReadAsStringAsync();
+                Console.WriteLine("Update failed: " + txt);
+            }
+        }
+    }
+}

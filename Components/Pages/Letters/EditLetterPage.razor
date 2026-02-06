@@ -4,73 +4,150 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 
-<h3>Edit Letter</h3>
+<h3>Load Template</h3>
 <p class="text-muted">Claim: @ClaimNumber • Document: @DocumentNumber • Template: @TemplateName</p>
 
-<div class="mb-3">
-    <a class="btn btn-outline-primary me-2" target="_blank" href="/api/letters/form/render/@(Uri.EscapeDataString(TemplateName))">Open rendered HTML</a>
-    <button class="btn btn-outline-secondary" @onclick="ReloadRendered">Reload</button>
-</div>
+@if (IsLoading)
+{
+    <div>Loading template...</div>
+}
+else
+{
+    <div>
+        <div id="editContent" contenteditable="true" style="min-height:60vh;border:1px solid #ddd;padding:12px;background:#fff;overflow:auto">@((MarkupString)editedHtml)</div>
 
-    <div class="mt-3">
-        <h6>Debug</h6>
-        <div class="mb-2">Rendered HTML length: @(renderedHtml?.Length ?? 0)</div>
-        @if (!string.IsNullOrEmpty(renderedHtml))
+        <div class="mt-3">
+            <button class="btn btn-secondary me-2" onclick="letterEditor.cancel('@ClaimNumber')">Cancel</button>
+            <button class="btn btn-primary" onclick="letterEditor.saveAndGenerate('@ClaimNumber','@DocumentNumber','@TemplateName','@(RuleId ?? string.Empty)')">Save / Generate PDF</button>
+        </div>
+        @if (!string.IsNullOrEmpty(Status))
         {
-            <div class="mb-2">
-                <label class="form-label">HTML snippet (first 500 chars)</label>
-                <textarea class="form-control" rows="12" readonly>@((renderedHtml.Length > 500) ? renderedHtml.Substring(0, 500) : renderedHtml)</textarea>
-            </div>
+            <div class="mt-2 text-muted">@Status</div>
         }
     </div>
+}
 
 @code {
     [Parameter] public string ClaimNumber { get; set; } = string.Empty;
     [Parameter] public string DocumentNumber { get; set; } = string.Empty;
     [Parameter] public string TemplateName { get; set; } = string.Empty;
 
-    private string? renderedHtml;
+    private ElementReference editDiv;
+    private string editedHtml = string.Empty;
+    private bool IsLoading = true;
+    private string? Status;
+    private string? RuleId;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAndRenderAsync();
+        // read optional ruleId from query string
+        var uri = new Uri(NavigationManager.Uri);
+        var qs = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (qs.TryGetValue("ruleId", out var v)) RuleId = v.ToString();
+        await LoadRenderedHtmlAsync();
     }
 
-    private async Task LoadAndRenderAsync()
+    private async Task LoadRenderedHtmlAsync()
     {
+        IsLoading = true;
         try
         {
             var client = HttpClientFactory.CreateClient();
             client.BaseAddress = new Uri(NavigationManager.BaseUri);
-
-            // load saved fields for this claim/document
-            var loadResp = await client.GetAsync($"/api/letters/form/load/{Uri.EscapeDataString(ClaimNumber)}/{Uri.EscapeDataString(DocumentNumber)}");
-            Dictionary<string, string> fields = new();
-            if (loadResp.IsSuccessStatusCode)
+            var payload = new Dictionary<string, object>
             {
-                var loaded = await loadResp.Content.ReadFromJsonAsync<Dictionary<string, Dictionary<string, string>>>();
-                if (loaded != null && loaded.TryGetValue("fields", out var map)) fields = map;
-            }
+                ["templateName"] = TemplateName,
+                ["claimNumber"] = ClaimNumber,
+                ["documentNumber"] = DocumentNumber
+            };
+            if (!string.IsNullOrEmpty(RuleId)) payload["ruleId"] = RuleId;
 
-            var payload = new { templateName = TemplateName, fields = fields };
             var resp = await client.PostAsJsonAsync("/api/letters/form/render", payload);
-            resp.EnsureSuccessStatusCode();
-            var html = await resp.Content.ReadAsStringAsync();
-            renderedHtml = html;
-            await InvokeAsync(StateHasChanged);
+            if (resp.IsSuccessStatusCode)
+            {
+                editedHtml = await resp.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                editedHtml = "<div class=\"text-danger\">Failed to load template for edit.</div>";
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Load render failed: " + ex.Message);
+            editedHtml = $"<div class=\"text-danger\">Error: {ex.Message}</div>";
+        }
+        finally
+        {
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
-    private async Task ReloadRendered()
+    private void Cancel()
     {
-        await LoadAndRenderAsync();
+        // close window/tab if opened separately, otherwise navigate back
+        JS.InvokeVoidAsync("close");
+        NavigationManager.NavigateTo($"/claim/{ClaimNumber}");
     }
 
-    // Inline edit removed: this page now shows a read-only rendered preview and a link to open the rendered HTML.
-}
+    private async Task SaveAndGenerate()
+    {
+        Status = "Generating PDF...";
+        StateHasChanged();
+        try
+        {
+            var client = HttpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var currentHtml = await JS.InvokeAsync<string>("letterEditor.getHtml", editDiv);
+            // send a small client-side log so we have a record the user clicked Save
+            try
+            {
+                var clientLog = new Dictionary<string, object>
+                {
+                    ["message"] = "SaveAndGenerate clicked",
+                    ["claimNumber"] = ClaimNumber,
+                    ["documentNumber"] = DocumentNumber,
+                    ["templateName"] = TemplateName,
+                    ["htmlLength"] = currentHtml?.Length ?? 0
+                };
+                // fire-and-forget the client log (server will append to logs/clientlogs.txt)
+                _ = client.PostAsJsonAsync("/api/clientlogs", clientLog);
+            }
+            catch { }
 
-@* Removed client-side auto-inject fallbacks and 'Force Load Template' button (unstable across environments). *@
+            var payload = new Dictionary<string, object>
+            {
+                ["claimNumber"] = ClaimNumber,
+                ["documentNumber"] = DocumentNumber,
+                ["templateName"] = TemplateName,
+                ["html"] = currentHtml
+            };
+            if (!string.IsNullOrEmpty(RuleId)) payload["ruleId"] = RuleId;
+
+            var resp = await client.PostAsJsonAsync("/api/letters/form/saveHtml", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                var obj = await resp.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+                if (obj != null && obj.TryGetValue("url", out var url))
+                {
+                    Status = "Letter saved please close";
+                    await JS.InvokeVoidAsync("open", url, "_blank");
+                    // refresh claim page so grid shows new record
+                    NavigationManager.NavigateTo($"/claim/{ClaimNumber}", forceLoad: true);
+                    return;
+                }
+                Status = "Letter saved please close";
+            }
+            else
+            {
+                var txt = await resp.Content.ReadAsStringAsync();
+                Status = "Generation failed: " + txt;
+            }
+        }
+        catch (Exception ex)
+        {
+            Status = "Error: " + ex.Message;
+        }
+        StateHasChanged();
+    }
+}
